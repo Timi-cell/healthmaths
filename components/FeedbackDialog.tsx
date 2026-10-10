@@ -126,7 +126,10 @@ export default function FeedbackDialog({
       ) : (
         <form onSubmit={submit}>
           <h3>Help shape HealthMaths</h3>
-          <p className="desc">Missing a formula? Spotted a mistake? Tell me.</p>
+          <p className="desc">
+            Can't find a formula? Spotted a mistake? Something else? Tell us
+            about it.
+          </p>
           <div className="row">
             <select
               className="sel"

@@ -1,3 +1,4 @@
+import { Analytics } from "@vercel/analytics/next";
 import type { Metadata, Viewport } from "next";
 import { Bricolage_Grotesque, Plus_Jakarta_Sans } from "next/font/google";
 import RegisterSW from "@/components/RegisterSW";
@@ -11,9 +12,9 @@ const display = Bricolage_Grotesque({
 });
 
 export const metadata: Metadata = {
-  title: "HealthMaths – Clinical formulas, worked step by step",
+  title: "HealthMaths – Clinical formulas, worked step by step.",
   description:
-    "Clinical formulas by body system, with every step shown and every unit handled.",
+    "Clinical formulas found under each body system, with every step shown and every unit handled.",
 };
 export const viewport: Viewport = {
   width: "device-width",
@@ -39,7 +40,7 @@ export default function RootLayout({
       </head>
       <body>
         {children}
-        <RegisterSW />
+        <RegisterSW /> <Analytics />
       </body>
     </html>
   );

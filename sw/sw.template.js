@@ -46,7 +46,12 @@ self.addEventListener("message", (e) => {
 
 self.addEventListener("fetch", (e) => {
   const req = e.request;
-  if (req.method !== "GET" || new URL(req.url).origin !== location.origin)
+  const url = new URL(req.url);
+  if (
+    req.method !== "GET" ||
+    url.origin !== location.origin ||
+    url.pathname.startsWith("/_vercel/")
+  )
     return;
   e.respondWith(
     (async () => {
