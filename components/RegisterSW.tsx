@@ -1,31 +1,49 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
-const APP_UPDATED_KEY = "healthmaths:app-updated";
+const APP_UPDATED_PARAM = "appUpdated";
 const APP_UPDATED_TIMEOUT_MS = 2500;
 
 export default function RegisterSW() {
   const [toast, setToast] = useState("");
+  const [updatedToast, setUpdatedToast] = useState(false);
   const [waiting, setWaiting] = useState<ServiceWorker | null>(null);
+  const toastTimeout = useRef<number | null>(null);
 
   // Small messages from anywhere in the app: window.dispatchEvent(new CustomEvent('healthmaths:toast', { detail: '...' }))
   useEffect(() => {
     const on = (e: Event) => {
       const detail = String((e as CustomEvent).detail);
       setToast(detail);
-      const timeoutId = window.setTimeout(() => setToast(""), 4000);
-      return () => window.clearTimeout(timeoutId);
+      if (toastTimeout.current !== null)
+        window.clearTimeout(toastTimeout.current);
+      toastTimeout.current = window.setTimeout(() => {
+        setToast("");
+        toastTimeout.current = null;
+      }, 4000);
     };
     addEventListener("healthmaths:toast", on);
-    return () => removeEventListener("healthmaths:toast", on);
+    return () => {
+      removeEventListener("healthmaths:toast", on);
+      if (toastTimeout.current !== null)
+        window.clearTimeout(toastTimeout.current);
+    };
   }, []);
 
   useEffect(() => {
-    const updated = sessionStorage.getItem(APP_UPDATED_KEY);
-    if (updated !== "1") return;
-    sessionStorage.removeItem(APP_UPDATED_KEY);
-    setToast("App Updated!");
-    const timeoutId = window.setTimeout(() => setToast(""), APP_UPDATED_TIMEOUT_MS);
+    const url = new URL(window.location.href);
+    if (url.searchParams.get(APP_UPDATED_PARAM) !== "1") return;
+    url.searchParams.delete(APP_UPDATED_PARAM);
+    history.replaceState(
+      history.state,
+      "",
+      `${url.pathname}${url.search}${url.hash}`,
+    );
+    setUpdatedToast(true);
+    const timeoutId = window.setTimeout(
+      () => setUpdatedToast(false),
+      APP_UPDATED_TIMEOUT_MS,
+    );
     return () => window.clearTimeout(timeoutId);
   }, []);
 
@@ -43,12 +61,13 @@ export default function RegisterSW() {
     const onControllerChange = () => {
       if (wantsUpdate && !reloading) {
         reloading = true;
-        location.reload();
+        const updatedUrl = new URL(location.href);
+        updatedUrl.searchParams.set(APP_UPDATED_PARAM, "1");
+        location.replace(updatedUrl.href);
       }
     };
     const applyUpdate = () => {
       wantsUpdate = true;
-      sessionStorage.setItem(APP_UPDATED_KEY, "1");
     };
     const appWindow = window as Window & { __applyUpdate?: () => void };
 
@@ -111,10 +130,16 @@ export default function RegisterSW() {
   }, []);
 
   const update = () => {
-    sessionStorage.setItem(APP_UPDATED_KEY, "1");
     (window as Window & { __applyUpdate?: () => void }).__applyUpdate?.();
     waiting?.postMessage({ type: "SKIP_WAITING" });
   };
+
+  if (updatedToast)
+    return (
+      <div className="toast" role="status">
+        App Updated!
+      </div>
+    );
 
   if (waiting)
     return (
