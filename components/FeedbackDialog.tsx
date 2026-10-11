@@ -95,6 +95,7 @@ export default function FeedbackDialog({
   }
   return (
     <dialog
+      id="feedback-dialog"
       ref={ref}
       onClose={() => {
         setStatus("idle");
@@ -127,8 +128,8 @@ export default function FeedbackDialog({
         <form onSubmit={submit}>
           <h3>Help shape HealthMaths</h3>
           <p className="desc">
-            Can't find a formula? Spotted a mistake? Something else? Tell us
-            about it.
+            Can't find a formula? Spotted a mistake? Something else? <br/> Tell us
+            about it. It takes less than a minute.
           </p>
           <div className="row">
             <select

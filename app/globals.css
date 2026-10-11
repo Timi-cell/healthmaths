@@ -134,7 +134,7 @@ html[data-show-intro="true"] .welcome {
   background: #0d9488;
   transform: scaleX(0);
   transform-origin: left;
-  animation: welcome-load 2.6s ease-out forwards;
+  animation: welcome-load 2s ease-out forwards;
 }
 .welcome p {
   margin: 0;
@@ -891,6 +891,20 @@ footer a {
   font-weight: 700;
   text-decoration: underline;
 }
+.feedback-fab {
+  position: fixed;
+  right: max(24px, calc((100vw - 1120px) / 2));
+  bottom: 24px;
+  z-index: 40;
+  border-color: var(--action);
+  background: var(--action);
+  color: #fff;
+  box-shadow: var(--sh);
+}
+.feedback-fab:hover {
+  color: #fff;
+  filter: brightness(0.94);
+}
 dialog {
   margin: auto;
   width: min(480px, calc(100vw - 32px));
@@ -1286,6 +1300,10 @@ dialog.sheet {
   }
   .toast {
     bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+  }
+  .feedback-fab {
+    right: 16px;
+    bottom: calc(92px + env(safe-area-inset-bottom, 0px));
   }
   footer {
     padding-bottom: 120px;

@@ -11,7 +11,7 @@ export default function WelcomeScreen() {
     const timeout = window.setTimeout(() => {
       delete root.dataset.showIntro;
       delete root.dataset.introStart;
-    }, Math.max(0, 2600 - elapsed));
+    }, Math.max(0, 2000 - elapsed));
     return () => window.clearTimeout(timeout);
   }, []);
 

@@ -366,7 +366,7 @@ export default function App() {
                   e.currentTarget.focus();
                 }
               }}
-              placeholder="What formula?..."
+              placeholder="Hi, what formula?..."
               aria-label="Search formulas"
               autoComplete="off"
             />
@@ -578,6 +578,14 @@ export default function App() {
           Request a formula or send feedback
         </button>
       </footer>
+      <button
+        className="btn feedback-fab"
+        onClick={() => setFb(true)}
+        aria-haspopup="dialog"
+        aria-controls="feedback-dialog"
+      >
+        Send feedback
+      </button>
       <FeedbackDialog open={fb} onClose={() => setFb(false)} />
       <SystemSheet
         open={sheet}

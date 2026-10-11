@@ -68,7 +68,7 @@ export default function RootLayout({
         <script
           dangerouslySetInnerHTML={{
             __html:
-              "try{if(JSON.parse(localStorage.getItem('healthmaths:v1:theme')||'null')==='dark')document.documentElement.dataset.theme='dark';var standalone=window.matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;if(standalone||!localStorage.getItem('healthmaths:intro-seen')){document.documentElement.dataset.showIntro='true';document.documentElement.dataset.introStart=String(Date.now());if(!standalone)localStorage.setItem('healthmaths:intro-seen','1')}}catch{}",
+              "try{if(JSON.parse(localStorage.getItem('healthmaths:v1:theme')||'null')==='dark')document.documentElement.dataset.theme='dark'}catch{}document.documentElement.dataset.showIntro='true';document.documentElement.dataset.introStart=String(Date.now());",
           }}
         />
       </head>
