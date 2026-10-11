@@ -68,7 +68,7 @@ export default function RootLayout({
         <script
           dangerouslySetInnerHTML={{
             __html:
-              "(()=>{try{if(JSON.parse(localStorage.getItem('healthmaths:v1:theme')||'null')==='dark')document.documentElement.dataset.theme='dark'}catch{}let introStart=Date.now();try{if(sessionStorage.getItem('healthmaths:update-reload-pending')==='true'){sessionStorage.removeItem('healthmaths:update-reload-pending');const updateStartedAt=Number(sessionStorage.getItem('healthmaths:update-started-at'));sessionStorage.removeItem('healthmaths:update-started-at');if(Number.isFinite(updateStartedAt))introStart=updateStartedAt;document.documentElement.dataset.updating='true';document.documentElement.style.setProperty('--welcome-update-delay',-(Date.now()-introStart)+'ms')}}catch{}document.documentElement.dataset.showIntro='true';document.documentElement.dataset.introStart=String(introStart)})();",
+              "(()=>{try{if(JSON.parse(localStorage.getItem('healthmaths:v1:theme')||'null')==='dark')document.documentElement.dataset.theme='dark'}catch{}try{if(sessionStorage.getItem('healthmaths:update-reload-pending')==='true'){sessionStorage.removeItem('healthmaths:update-reload-pending');document.documentElement.dataset.updating='true'}}catch{}document.documentElement.dataset.showIntro='true';document.documentElement.dataset.introStart=String(Date.now())})();",
           }}
         />
       </head>

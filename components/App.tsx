@@ -28,6 +28,11 @@ import {
 const ECG =
   "M0 40H150l10-4 8 4h14l8-8 12 52 12-70 12 26h12l10-6 14 6H420l10-4 8 4h14l8-8 12 52 12-70 12 26h12l10-6 14 6H600";
 type Tab = "all" | "used" | "history";
+type PendingDeletion =
+  | { type: "used-item"; id: string }
+  | { type: "history-item"; id: string }
+  | { type: "clear-used" }
+  | { type: "clear-history" };
 const CARDIOVASCULAR_SUBSYSTEMS = [
   "Haemodynamics",
   "Echo",
@@ -69,8 +74,11 @@ export default function App() {
   } | null>(null);
   const [fb, setFb] = useState(false);
   const [sheet, setSheet] = useState(false);
+  const [pendingDeletion, setPendingDeletion] =
+    useState<PendingDeletion | null>(null);
   const search = useRef<HTMLInputElement>(null);
   const calculator = useRef<HTMLDivElement>(null);
+  const deleteDialog = useRef<HTMLDialogElement>(null);
   const calculationCountRef = useRef(0);
 
   const systems = useMemo(
@@ -130,6 +138,37 @@ export default function App() {
   useEffect(() => {
     if (ready) save(KEYS.used, used);
   }, [used, ready]);
+  useEffect(() => {
+    const dialog = deleteDialog.current;
+    if (!dialog) return;
+    if (pendingDeletion && !dialog.open) dialog.showModal();
+    if (!pendingDeletion && dialog.open) dialog.close();
+  }, [pendingDeletion]);
+
+  const confirmDeletion = () => {
+    if (!pendingDeletion) return;
+    switch (pendingDeletion.type) {
+      case "used-item":
+        setUsed((items) => {
+          const next = { ...items };
+          delete next[pendingDeletion.id];
+          return next;
+        });
+        break;
+      case "history-item":
+        setHist((entries) =>
+          entries.filter((entry) => entry.id !== pendingDeletion.id),
+        );
+        break;
+      case "clear-used":
+        setUsed({});
+        break;
+      case "clear-history":
+        setHist([]);
+        break;
+    }
+    setPendingDeletion(null);
+  };
 
   useEffect(() => {
     const openFromAddress = () => {
@@ -480,7 +519,7 @@ export default function App() {
                     <button
                       className="btn"
                       aria-label="Clear all used formulas"
-                      onClick={() => setUsed({})}
+                      onClick={() => setPendingDeletion({ type: "clear-used" })}
                     >
                       Clear all
                     </button>
@@ -493,11 +532,7 @@ export default function App() {
                         aria-label={`Remove ${f.n} from Used`}
                         title="Remove from Used"
                         onClick={() =>
-                          setUsed((items) => {
-                            const next = { ...items };
-                            delete next[f.id];
-                            return next;
-                          })
+                          setPendingDeletion({ type: "used-item", id: f.id })
                         }
                       >
                         ×
@@ -518,7 +553,9 @@ export default function App() {
                     <button
                       className="btn"
                       aria-label="Clear all history"
-                      onClick={() => setHist([])}
+                      onClick={() =>
+                        setPendingDeletion({ type: "clear-history" })
+                      }
                     >
                       Clear all
                     </button>
@@ -545,9 +582,10 @@ export default function App() {
                           aria-label={`Delete ${e.t} from history`}
                           title="Delete from History"
                           onClick={() =>
-                            setHist((entries) =>
-                              entries.filter((entry) => entry.id !== e.id),
-                            )
+                            setPendingDeletion({
+                              type: "history-item",
+                              id: e.id,
+                            })
                           }
                         >
                           ×
@@ -593,6 +631,30 @@ export default function App() {
         Send feedback
       </button>
       <FeedbackDialog open={fb} onClose={() => setFb(false)} />
+      <dialog
+        ref={deleteDialog}
+        aria-labelledby="delete-confirmation-title"
+        onClose={() => setPendingDeletion(null)}
+      >
+        <h3 id="delete-confirmation-title">
+          {pendingDeletion?.type === "clear-used" ||
+          pendingDeletion?.type === "clear-history"
+            ? "Are you sure you want to clear all?"
+            : "Are you sure?"}
+        </h3>
+        <div className="actions">
+          <button className="btn" onClick={confirmDeletion}>
+            Yes
+          </button>
+          <button
+            className="btn"
+            onClick={() => setPendingDeletion(null)}
+            autoFocus
+          >
+            No
+          </button>
+        </div>
+      </dialog>
       <SystemSheet
         open={sheet}
         onClose={() => setSheet(false)}

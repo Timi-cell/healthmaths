@@ -127,15 +127,9 @@ export default function RegisterSW() {
 
   const update = () => {
     (window as Window & { __applyUpdate?: () => void }).__applyUpdate?.();
-    try {
-      sessionStorage.setItem("healthmaths:update-started-at", String(Date.now()));
-    } catch {
-      // The update can still proceed when session storage is unavailable.
-    }
     document.documentElement.dataset.showIntro = "true";
     document.documentElement.dataset.introStart = String(Date.now());
     document.documentElement.dataset.updating = "true";
-    document.documentElement.style.setProperty("--welcome-update-delay", "0ms");
     window.dispatchEvent(new Event("healthmaths:updating"));
     waiting?.postMessage({ type: "SKIP_WAITING" });
   };

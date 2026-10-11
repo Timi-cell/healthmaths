@@ -11,7 +11,6 @@ export default function WelcomeScreen() {
       delete root.dataset.showIntro;
       delete root.dataset.introStart;
       delete root.dataset.updating;
-      root.style.removeProperty("--welcome-update-delay");
       timeout.current = null;
       if (updated) {
         root.dataset.updateComplete = "true";
@@ -35,7 +34,6 @@ export default function WelcomeScreen() {
       root.dataset.showIntro = "true";
       root.dataset.updating = "true";
       root.dataset.introStart = String(Date.now());
-      root.style.setProperty("--welcome-update-delay", "0ms");
       setMessage("Updating your app...");
     };
     window.addEventListener("healthmaths:updating", onUpdating);
