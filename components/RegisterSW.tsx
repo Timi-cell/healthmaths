@@ -8,6 +8,16 @@ export default function RegisterSW() {
 
   // Small messages from anywhere in the app: window.dispatchEvent(new CustomEvent('healthmaths:toast', { detail: '...' }))
   useEffect(() => {
+    const showUpdatedToast = () => {
+      setToast("App Updated");
+      if (toastTimeout.current !== null)
+        window.clearTimeout(toastTimeout.current);
+      toastTimeout.current = window.setTimeout(() => {
+        setToast("");
+        toastTimeout.current = null;
+      }, 4000);
+    };
+    addEventListener("healthmaths:update-complete", showUpdatedToast);
     const on = (e: Event) => {
       const detail = String((e as CustomEvent).detail);
       setToast(detail);
@@ -20,6 +30,7 @@ export default function RegisterSW() {
     };
     addEventListener("healthmaths:toast", on);
     return () => {
+      removeEventListener("healthmaths:update-complete", showUpdatedToast);
       removeEventListener("healthmaths:toast", on);
       if (toastTimeout.current !== null)
         window.clearTimeout(toastTimeout.current);
@@ -40,6 +51,7 @@ export default function RegisterSW() {
     const onControllerChange = () => {
       if (wantsUpdate && !reloading) {
         reloading = true;
+        sessionStorage.setItem("healthmaths:update-reload-pending", "true");
         location.reload();
       }
     };
@@ -110,6 +122,7 @@ export default function RegisterSW() {
     (window as Window & { __applyUpdate?: () => void }).__applyUpdate?.();
     document.documentElement.dataset.showIntro = "true";
     document.documentElement.dataset.introStart = String(Date.now());
+    document.documentElement.dataset.updating = "true";
     window.dispatchEvent(new Event("healthmaths:updating"));
     waiting?.postMessage({ type: "SKIP_WAITING" });
   };
@@ -118,7 +131,7 @@ export default function RegisterSW() {
     return (
       <div className="toast" role="status">
         <span>We've added some updates!</span>
-        <button onClick={update}>Update HealthMaths App</button>
+        <button onClick={update}>Update HealthMaths</button>
       </div>
     );
   return toast ? (

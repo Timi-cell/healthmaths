@@ -7,22 +7,31 @@ export default function WelcomeScreen() {
 
   useEffect(() => {
     const root = document.documentElement;
-    if (root.dataset.showIntro !== "true") return;
-
-    const startedAt = Number(root.dataset.introStart);
-    const elapsed = Number.isFinite(startedAt) ? Date.now() - startedAt : 0;
-    timeout.current = window.setTimeout(() => {
+    const finishIntro = (updated: boolean) => {
       delete root.dataset.showIntro;
       delete root.dataset.introStart;
+      delete root.dataset.updating;
       timeout.current = null;
-    }, Math.max(0, 2000 - elapsed));
+      if (updated) window.dispatchEvent(new Event("healthmaths:update-complete"));
+    };
+    const updatingAfterReload = root.dataset.updating === "true";
+    if (updatingAfterReload) setMessage("Updating your app...");
+    if (root.dataset.showIntro === "true") {
+      const startedAt = Number(root.dataset.introStart);
+      const elapsed = Number.isFinite(startedAt) ? Date.now() - startedAt : 0;
+      timeout.current = window.setTimeout(
+        () => finishIntro(updatingAfterReload),
+        Math.max(0, 2000 - elapsed),
+      );
+    }
 
     const onUpdating = () => {
       if (timeout.current !== null) window.clearTimeout(timeout.current);
       timeout.current = null;
       root.dataset.showIntro = "true";
       root.dataset.updating = "true";
-      setMessage("Updating...");
+      root.dataset.introStart = String(Date.now());
+      setMessage("Updating your app...");
     };
     window.addEventListener("healthmaths:updating", onUpdating);
     return () => {

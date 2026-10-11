@@ -281,7 +281,13 @@ export default function App() {
             <span className="mark">+</span>HealthMaths
           </div>
           <div className="topr">
-            {!online && <span className="pill">Offline</span>}
+            <span
+              className={`pill${online ? " online" : ""}`}
+              role="status"
+              aria-live="polite"
+            >
+              {online ? "Online" : "Offline"}
+            </span>
             {/* <span className="pill">v1.0</span> */}
             <button
               className="tg"
@@ -290,7 +296,7 @@ export default function App() {
               title={`Switch to ${theme === "light" ? "dark" : "light"} theme`}
             >
               <Icon name={theme === "light" ? "moon" : "sun"} />
-              <span>Theme</span>
+              {/* <span>Theme</span> */}
             </button>
           </div>
         </div>

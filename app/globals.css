@@ -137,9 +137,7 @@ html[data-show-intro="true"] .welcome {
   animation: welcome-load 2s ease-out forwards;
 }
 html[data-updating="true"] .welcome-track span {
-  width: 40%;
-  transform: translateX(-150%);
-  animation: welcome-update 1s ease-in-out infinite alternate;
+  animation: welcome-update 2s ease-out forwards;
 }
 .welcome p {
   margin: 0;
@@ -163,7 +161,7 @@ html[data-updating="true"] .welcome-track span {
 }
 @keyframes welcome-update {
   to {
-    transform: translateX(250%);
+    transform: scaleX(1);
   }
 }
 body:before {
@@ -247,6 +245,18 @@ header {
   padding: 5px 11px;
   border-radius: 999px;
   background: var(--glass);
+}
+.pill.online {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.pill.online::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #16a34a;
 }
 .tg {
   display: flex;
