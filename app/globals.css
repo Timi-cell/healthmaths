@@ -138,6 +138,7 @@ html[data-show-intro="true"] .welcome {
 }
 html[data-updating="true"] .welcome-track span {
   animation: welcome-update 2s ease-out forwards;
+  animation-delay: var(--welcome-update-delay, 0ms);
 }
 .welcome p {
   margin: 0;

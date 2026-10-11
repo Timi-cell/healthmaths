@@ -1,18 +1,22 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 
 export default function WelcomeScreen() {
   const [message, setMessage] = useState("Maths in Healthcare, made easier.");
   const timeout = useRef<number | null>(null);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const root = document.documentElement;
     const finishIntro = (updated: boolean) => {
       delete root.dataset.showIntro;
       delete root.dataset.introStart;
       delete root.dataset.updating;
+      root.style.removeProperty("--welcome-update-delay");
       timeout.current = null;
-      if (updated) window.dispatchEvent(new Event("healthmaths:update-complete"));
+      if (updated) {
+        root.dataset.updateComplete = "true";
+        window.dispatchEvent(new Event("healthmaths:update-complete"));
+      }
     };
     const updatingAfterReload = root.dataset.updating === "true";
     if (updatingAfterReload) setMessage("Updating your app...");
@@ -31,6 +35,7 @@ export default function WelcomeScreen() {
       root.dataset.showIntro = "true";
       root.dataset.updating = "true";
       root.dataset.introStart = String(Date.now());
+      root.style.setProperty("--welcome-update-delay", "0ms");
       setMessage("Updating your app...");
     };
     window.addEventListener("healthmaths:updating", onUpdating);
