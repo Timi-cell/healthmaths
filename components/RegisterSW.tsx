@@ -1,7 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 
-const APP_UPDATED_PARAM = "appUpdated";
 const APP_UPDATED_TIMEOUT_MS = 2500;
 
 export default function RegisterSW() {
@@ -31,23 +30,6 @@ export default function RegisterSW() {
   }, []);
 
   useEffect(() => {
-    const url = new URL(window.location.href);
-    if (url.searchParams.get(APP_UPDATED_PARAM) !== "1") return;
-    url.searchParams.delete(APP_UPDATED_PARAM);
-    history.replaceState(
-      history.state,
-      "",
-      `${url.pathname}${url.search}${url.hash}`,
-    );
-    setUpdatedToast(true);
-    const timeoutId = window.setTimeout(
-      () => setUpdatedToast(false),
-      APP_UPDATED_TIMEOUT_MS,
-    );
-    return () => window.clearTimeout(timeoutId);
-  }, []);
-
-  useEffect(() => {
     if (
       !("serviceWorker" in navigator) ||
       process.env.NODE_ENV !== "production"
@@ -61,9 +43,9 @@ export default function RegisterSW() {
     const onControllerChange = () => {
       if (wantsUpdate && !reloading) {
         reloading = true;
-        const updatedUrl = new URL(location.href);
-        updatedUrl.searchParams.set(APP_UPDATED_PARAM, "1");
-        location.replace(updatedUrl.href);
+        setWaiting(null);
+        setUpdatedToast(true);
+        window.setTimeout(() => location.reload(), APP_UPDATED_TIMEOUT_MS);
       }
     };
     const applyUpdate = () => {
