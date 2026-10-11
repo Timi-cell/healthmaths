@@ -131,6 +131,26 @@ export default function App() {
     if (ready) save(KEYS.used, used);
   }, [used, ready]);
 
+  useEffect(() => {
+    const openFromAddress = () => {
+      const id = new URL(window.location.href).searchParams.get("f");
+      const formula = F.find((item) => item.id === id);
+      if (formula) {
+        setCur(formula);
+        setSeed(null);
+        setTab("all");
+        setOpen(true);
+      } else {
+        setSeed(null);
+        setTab("all");
+        setOpen(false);
+      }
+    };
+    openFromAddress();
+    window.addEventListener("popstate", openFromAddress);
+    return () => window.removeEventListener("popstate", openFromAddress);
+  }, []);
+
   // Track connection; when it returns, send any feedback written while offline.
   useEffect(() => {
     const update = () => setOnline(navigator.onLine);
@@ -187,10 +207,18 @@ export default function App() {
       );
     }
   };
+  const setFormulaAddress = (id?: string, replace = false) => {
+    const address = id ? `/?f=${encodeURIComponent(id)}` : "/";
+    if (`${window.location.pathname}${window.location.search}` === address)
+      return;
+    if (replace) window.history.replaceState(window.history.state, "", address);
+    else window.history.pushState(window.history.state, "", address);
+  };
   const openFormula = (f: Formula) => {
     setCur(f);
     setSeed(null);
     setOpen(true);
+    setFormulaAddress(f.id);
     revealCalculator();
   };
   const openEntry = (e: Entry) => {
@@ -199,11 +227,19 @@ export default function App() {
     setCur(f);
     setSeed({ key: e.at, vals: e.vals, units: e.units });
     setOpen(true);
+    setFormulaAddress(f.id);
     revealCalculator();
   };
   const goTab = (t: Tab) => {
     setTab(t);
     setOpen(false);
+    setFormulaAddress(undefined, true);
+    if (t === "all") window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+  const backToFormulas = () => {
+    setTab("all");
+    setOpen(false);
+    setFormulaAddress(undefined, true);
   };
   const toggleTheme = () => {
     const next = theme === "light" ? "dark" : "light";
@@ -411,7 +447,7 @@ export default function App() {
                 role="tab"
                 className="tab"
                 aria-selected={tab === k}
-                onClick={() => setTab(k)}
+                onClick={() => goTab(k)}
               >
                 {k === "used" && usedList.length
                   ? `${l} · ${usedList.length}`
@@ -528,7 +564,7 @@ export default function App() {
             f={cur}
             seed={seed}
             onResult={onResult}
-            onBack={() => setOpen(false)}
+            onBack={backToFormulas}
           />
         </div>
       </main>

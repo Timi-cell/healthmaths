@@ -23,36 +23,54 @@ export default function RegisterSW() {
       return;
     let reloading = false;
     let wantsUpdate = false;
+    let disposed = false;
+    let cleanupRegistrationListeners = () => {};
     const sw = navigator.serviceWorker;
-
-    sw.register("/sw.js")
-      .then((reg) => {
-        // A new version has downloaded and is waiting for the user's go-ahead.
-        if (reg.waiting && sw.controller) setWaiting(reg.waiting);
-        reg.addEventListener("updatefound", () => {
-          const w = reg.installing;
-          w?.addEventListener("statechange", () => {
-            if (w.state === "installed" && sw.controller) setWaiting(w);
-          });
-        });
-        // Look for updates whenever the app comes back to the foreground.
-        document.addEventListener("visibilitychange", () => {
-          if (document.visibilityState === "visible")
-            reg.update().catch(() => {});
-        });
-      })
-      .catch(() => {});
-
-    sw.addEventListener("controllerchange", () => {
+    const onControllerChange = () => {
       if (wantsUpdate && !reloading) {
         reloading = true;
         location.reload();
       }
-    });
-    (window as unknown as { __applyUpdate?: () => void }).__applyUpdate =
-      () => {
-        wantsUpdate = true;
-      };
+    };
+    const applyUpdate = () => {
+      wantsUpdate = true;
+    };
+    const appWindow = window as Window & { __applyUpdate?: () => void };
+
+    sw.register("/sw.js")
+      .then((reg) => {
+        if (disposed) return;
+        const checkForUpdate = () => {
+          if (navigator.onLine) reg.update().catch(() => {});
+        };
+
+        // A new version has downloaded and is waiting for the user's go-ahead.
+        if (reg.waiting && sw.controller) setWaiting(reg.waiting);
+        const onUpdateFound = () => {
+          const w = reg.installing;
+          w?.addEventListener("statechange", () => {
+            if (w.state === "installed" && sw.controller) setWaiting(w);
+          });
+        };
+        reg.addEventListener("updatefound", onUpdateFound);
+        // Check at startup, when connectivity returns, and when the app resumes.
+        checkForUpdate();
+        const onOnline = () => checkForUpdate();
+        const onVisibility = () => {
+          if (document.visibilityState === "visible") checkForUpdate();
+        };
+        addEventListener("online", onOnline);
+        document.addEventListener("visibilitychange", onVisibility);
+        cleanupRegistrationListeners = () => {
+          reg.removeEventListener("updatefound", onUpdateFound);
+          removeEventListener("online", onOnline);
+          document.removeEventListener("visibilitychange", onVisibility);
+        };
+      })
+      .catch(() => {});
+
+    sw.addEventListener("controllerchange", onControllerChange);
+    appWindow.__applyUpdate = applyUpdate;
 
     // Ask the browser not to evict our saved data and cached app when storage is tight.
     navigator.storage?.persist?.().catch(() => {});
@@ -67,18 +85,26 @@ export default function RegisterSW() {
         );
       })
       .catch(() => {});
+
+    return () => {
+      disposed = true;
+      cleanupRegistrationListeners();
+      sw.removeEventListener("controllerchange", onControllerChange);
+      if (appWindow.__applyUpdate === applyUpdate)
+        delete appWindow.__applyUpdate;
+    };
   }, []);
 
   const update = () => {
-    (window as unknown as { __applyUpdate?: () => void }).__applyUpdate?.();
+    (window as Window & { __applyUpdate?: () => void }).__applyUpdate?.();
     waiting?.postMessage({ type: "SKIP_WAITING" });
   };
 
   if (waiting)
     return (
       <div className="toast" role="status">
-        <span>New version ready</span>
-        <button onClick={update}>Update</button>
+        <span>We've added some updates!</span>
+        <button onClick={update}>Update HealthMaths App</button>
       </div>
     );
   return toast ? (

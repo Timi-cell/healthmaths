@@ -97,6 +97,65 @@ body {
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
 }
+.welcome {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 24px;
+  background: #f5f7f8;
+  color: #102b35;
+  text-align: center;
+}
+html[data-show-intro="true"] .welcome {
+  display: flex;
+}
+.welcome img {
+  width: 96px;
+  height: 96px;
+  object-fit: contain;
+}
+.welcome-track {
+  width: min(220px, 60vw);
+  height: 5px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(16, 43, 53, 0.12);
+}
+.welcome-track span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  background: #0d9488;
+  transform: scaleX(0);
+  transform-origin: left;
+  animation: welcome-load 2.6s ease-out forwards;
+}
+.welcome p {
+  margin: 0;
+  font-weight: 700;
+  color: #52676d;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+@keyframes welcome-load {
+  to {
+    transform: scaleX(1);
+  }
+}
 body:before {
   content: "";
   position: fixed;
@@ -670,6 +729,21 @@ main {
   padding: 9px 15px;
   border-radius: 14px;
 }
+.result-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+.result-actions .btn {
+  border-color: rgba(255, 255, 255, 0.38);
+  background: rgba(8, 26, 32, 0.22);
+  color: #fff;
+}
+.result-actions .btn:hover {
+  border-color: #fff;
+  background: rgba(8, 26, 32, 0.38);
+}
 details {
   margin-top: 16px;
   background: rgba(8, 26, 32, 0.24);
@@ -916,6 +990,17 @@ dialog .actions {
   cursor: pointer;
   background: var(--action);
   color: #fff;
+}
+@media (max-width: 560px) {
+  .toast {
+    width: max-content;
+    max-width: calc(100vw - 24px);
+    flex-wrap: wrap;
+    justify-content: center;
+    border-radius: 18px;
+    white-space: normal;
+    text-align: center;
+  }
 }
 
 /* ---- layout: search bar, recent row, sheet, install card ---- */

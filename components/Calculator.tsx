@@ -8,6 +8,7 @@ import {
 } from "react";
 import { HU, type Formula } from "@/lib/formulas";
 import { U, r } from "@/lib/units";
+import { formatResultForCopy } from "@/lib/share";
 import Gauge from "./Gauge";
 import type { Entry } from "@/lib/store";
 
@@ -91,6 +92,8 @@ export default function Calculator({ f, seed, onResult, onBack }: Props) {
       : (f.dg ?? (["time", "press", "ratio", "crcl"].includes(f.out) ? 0 : 1));
   const shown = useCount(res ? res.val / k : 0, dp);
   const text = res && outU ? `${r(res.val / k, dp)} ${outU}` : "";
+  const formulaUrl = () =>
+    `${window.location.origin}/?f=${encodeURIComponent(f.id)}`;
 
   // Save to history once the user stops typing.
   useEffect(() => {
@@ -106,6 +109,65 @@ export default function Calculator({ f, seed, onResult, onBack }: Props) {
     setVals({});
     setUnits({});
     setPick(null);
+  };
+  const notify = (message: string) =>
+    window.dispatchEvent(
+      new CustomEvent("healthmaths:toast", { detail: message }),
+    );
+  const copyText = async (value: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      return;
+    } catch {
+      const field = document.createElement("textarea");
+      field.value = value;
+      field.style.position = "fixed";
+      field.style.opacity = "0";
+      document.body.append(field);
+      field.select();
+      const copied = document.execCommand("copy");
+      field.remove();
+      if (!copied) throw new Error("Clipboard access is unavailable.");
+    }
+  };
+  const copyResult = async () => {
+    if (!res) return;
+    const content = formatResultForCopy(
+      f,
+      text,
+      vals,
+      units,
+      res.note,
+      formulaUrl(),
+    );
+    try {
+      await copyText(content);
+      notify("Result copied to clipboard.");
+    } catch {
+      notify("Couldn't copy the result. Please check clipboard permissions.");
+    }
+  };
+  const shareLink = async () => {
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: `${f.n} | HealthMaths`,
+          text: "Open this calculator on HealthMaths.",
+          url: formulaUrl(),
+        });
+        return;
+      }
+      await copyText(formulaUrl());
+      notify("Link copied to clipboard.");
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      try {
+        await copyText(formulaUrl());
+        notify("Couldn't open sharing. Link copied to clipboard.");
+      } catch {
+        notify("Couldn't share or copy the link. Please try again.");
+      }
+    }
   };
 
   return (
@@ -187,6 +249,14 @@ export default function Calculator({ f, seed, onResult, onBack }: Props) {
             </div>
             <Gauge f={f} val={res.val} outU={outU} />
             {res.note && <p className="note">{res.note}</p>}
+            <div className="result-actions">
+              <button className="btn" onClick={copyResult}>
+                Copy Result
+              </button>
+              <button className="btn" onClick={shareLink}>
+                Share Link
+              </button>
+            </div>
             <details>
               <summary>Calculation Steps</summary>
               <ol>

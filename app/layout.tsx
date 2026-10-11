@@ -1,7 +1,9 @@
 import { Analytics } from "@vercel/analytics/next";
 import type { Metadata, Viewport } from "next";
+import { headers } from "next/headers";
 import { Bricolage_Grotesque, Plus_Jakarta_Sans } from "next/font/google";
 import RegisterSW from "@/components/RegisterSW";
+import WelcomeScreen from "@/components/WelcomeScreen";
 import "./globals.css";
 
 const ui = Plus_Jakarta_Sans({ subsets: ["latin"], variable: "--font-ui" });
@@ -11,11 +13,43 @@ const display = Bricolage_Grotesque({
   variable: "--font-display",
 });
 
-export const metadata: Metadata = {
-  title: "HealthMaths – Clinical formulas, worked step by step.",
-  description:
-    "Clinical formulas found under each body system, with every step shown and every unit handled.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const requestHeaders = await headers();
+  const configuredUrl = process.env.NEXT_PUBLIC_SITE_URL;
+  const host =
+    requestHeaders.get("x-forwarded-host") ??
+    requestHeaders.get("host") ??
+    "localhost:3000";
+  const protocol =
+    requestHeaders.get("x-forwarded-proto") ??
+    (host.startsWith("localhost") ? "http" : "https");
+  const metadataBase = new URL(
+    configuredUrl ?? `${protocol.split(",")[0]}://${host}`,
+  );
+  const title = "HealthMaths – Clinical formulas, worked step by step.";
+  const description =
+    "Clinical formulas found under each body system, with every step shown and every unit handled.";
+  return {
+    metadataBase,
+    title,
+    description,
+    openGraph: {
+      type: "website",
+      siteName: "HealthMaths",
+      title,
+      description,
+      images: [
+        {
+          url: "/icon-512.png",
+          width: 512,
+          height: 512,
+          alt: "HealthMaths",
+        },
+      ],
+    },
+    twitter: { card: "summary", title, description, images: ["/icon-512.png"] },
+  };
+}
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
@@ -34,13 +68,15 @@ export default function RootLayout({
         <script
           dangerouslySetInnerHTML={{
             __html:
-              "try{if(JSON.parse(localStorage.getItem('healthmaths:v1:theme')||'null')==='dark')document.documentElement.dataset.theme='dark'}catch{}",
+              "try{if(JSON.parse(localStorage.getItem('healthmaths:v1:theme')||'null')==='dark')document.documentElement.dataset.theme='dark';var standalone=window.matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;if(standalone||!localStorage.getItem('healthmaths:intro-seen')){document.documentElement.dataset.showIntro='true';document.documentElement.dataset.introStart=String(Date.now());if(!standalone)localStorage.setItem('healthmaths:intro-seen','1')}}catch{}",
           }}
         />
       </head>
       <body>
         {children}
-        <RegisterSW /> <Analytics />
+        <WelcomeScreen />
+        <RegisterSW />
+        <Analytics />
       </body>
     </html>
   );

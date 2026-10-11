@@ -102,6 +102,8 @@ HealthMaths is designed for a lightweight offline experience:
 
 - calculation history and usage data are stored locally in the browser
 - the app can install as a PWA and work without a network connection after the first load
+- each calculator can be opened directly with its `/?f=<formula-id>` link; the app checks for service-worker updates when opened, resumed, or brought back online and offers an in-app update action
+- the welcome screen appears on a browser's first visit and each time the installed app is launched
 - feedback submissions are queued locally and sent when connectivity returns
 - service worker assets are generated automatically during build and dev startup via `scripts/build-sw.mjs`
 
