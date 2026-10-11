@@ -136,6 +136,11 @@ html[data-show-intro="true"] .welcome {
   transform-origin: left;
   animation: welcome-load 2s ease-out forwards;
 }
+html[data-updating="true"] .welcome-track span {
+  width: 40%;
+  transform: translateX(-150%);
+  animation: welcome-update 1s ease-in-out infinite alternate;
+}
 .welcome p {
   margin: 0;
   font-weight: 700;
@@ -154,6 +159,11 @@ html[data-show-intro="true"] .welcome {
 @keyframes welcome-load {
   to {
     transform: scaleX(1);
+  }
+}
+@keyframes welcome-update {
+  to {
+    transform: translateX(250%);
   }
 }
 body:before {

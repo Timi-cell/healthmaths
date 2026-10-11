@@ -1,11 +1,8 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 
-const APP_UPDATED_TIMEOUT_MS = 2500;
-
 export default function RegisterSW() {
   const [toast, setToast] = useState("");
-  const [updatedToast, setUpdatedToast] = useState(false);
   const [waiting, setWaiting] = useState<ServiceWorker | null>(null);
   const toastTimeout = useRef<number | null>(null);
 
@@ -43,9 +40,7 @@ export default function RegisterSW() {
     const onControllerChange = () => {
       if (wantsUpdate && !reloading) {
         reloading = true;
-        setWaiting(null);
-        setUpdatedToast(true);
-        window.setTimeout(() => location.reload(), APP_UPDATED_TIMEOUT_MS);
+        location.reload();
       }
     };
     const applyUpdate = () => {
@@ -113,15 +108,11 @@ export default function RegisterSW() {
 
   const update = () => {
     (window as Window & { __applyUpdate?: () => void }).__applyUpdate?.();
+    document.documentElement.dataset.showIntro = "true";
+    document.documentElement.dataset.introStart = String(Date.now());
+    window.dispatchEvent(new Event("healthmaths:updating"));
     waiting?.postMessage({ type: "SKIP_WAITING" });
   };
-
-  if (updatedToast)
-    return (
-      <div className="toast" role="status">
-        App Updated!
-      </div>
-    );
 
   if (waiting)
     return (

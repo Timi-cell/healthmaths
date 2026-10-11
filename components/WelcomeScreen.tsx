@@ -1,18 +1,34 @@
 "use client";
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export default function WelcomeScreen() {
+  const [message, setMessage] = useState("Maths in Healthcare, made easier.");
+  const timeout = useRef<number | null>(null);
+
   useEffect(() => {
     const root = document.documentElement;
     if (root.dataset.showIntro !== "true") return;
 
     const startedAt = Number(root.dataset.introStart);
     const elapsed = Number.isFinite(startedAt) ? Date.now() - startedAt : 0;
-    const timeout = window.setTimeout(() => {
+    timeout.current = window.setTimeout(() => {
       delete root.dataset.showIntro;
       delete root.dataset.introStart;
+      timeout.current = null;
     }, Math.max(0, 2000 - elapsed));
-    return () => window.clearTimeout(timeout);
+
+    const onUpdating = () => {
+      if (timeout.current !== null) window.clearTimeout(timeout.current);
+      timeout.current = null;
+      root.dataset.showIntro = "true";
+      root.dataset.updating = "true";
+      setMessage("Updating...");
+    };
+    window.addEventListener("healthmaths:updating", onUpdating);
+    return () => {
+      window.removeEventListener("healthmaths:updating", onUpdating);
+      if (timeout.current !== null) window.clearTimeout(timeout.current);
+    };
   }, []);
 
   return (
@@ -22,7 +38,7 @@ export default function WelcomeScreen() {
       <div className="welcome-track" aria-hidden="true">
         <span />
       </div>
-      <p>Maths in Healthcare, made easier.</p>
+      <p>{message}</p>
     </div>
   );
 }
