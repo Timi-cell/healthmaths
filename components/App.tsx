@@ -721,6 +721,7 @@ export default function App() {
           <Calculator
             key={`${cur.id}:${seed?.key ?? 0}`}
             f={cur}
+            theme={theme}
             seed={seed}
             onResult={onResult}
             onBack={backToFormulas}

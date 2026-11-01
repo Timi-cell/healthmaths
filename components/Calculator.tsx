@@ -119,12 +119,13 @@ function useCount(to: number, dp: number) {
 type Seed = { vals: Record<string, string>; units: Record<string, string> };
 type Props = {
   f: Formula;
+  theme: "light" | "dark";
   seed?: Seed | null;
   onResult: (e: Omit<Entry, "id" | "at">) => void;
   onBack: () => void;
 };
 
-export default function Calculator({ f, seed, onResult, onBack }: Props) {
+export default function Calculator({ f, theme, seed, onResult, onBack }: Props) {
   const [vals, setVals] = useState<Record<string, string>>(seed?.vals ?? {});
   const [units, setUnits] = useState<Record<string, string>>(seed?.units ?? {});
   const [pick, setPick] = useState<string | null>(null);
@@ -354,8 +355,14 @@ export default function Calculator({ f, seed, onResult, onBack }: Props) {
               type="button"
               onClick={getResult}
               disabled={!res || submitted}
+              style={{
+                color: theme === "dark" ? "#fff" : "var(--action)",
+                backgroundColor:
+                  theme === "dark" ? "var(--action)" : "var(--glass)",
+                opacity: 1,
+              }}
             >
-              {submitted ? "Result added to history" : "Get Result"}
+              {submitted ? "Result added to history!" : "Get Result"}
             </button>
           </div>
         )}
