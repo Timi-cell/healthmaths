@@ -15,7 +15,7 @@ export async function generateMetadata({
     : "HealthMaths – Clinical formulas, worked step by step.";
   const description = formula
     ? `${formula.d} Open the ${formula.n} calculator on HealthMaths.`
-    : "Clinical formulas found under each body system, with every step shown and every unit handled.";
+    : "Browse clinical formulas by body system or department, with formatted equations, worked steps and unit conversion.";
   const url = formula ? `/?f=${encodeURIComponent(formula.id)}` : "/";
   const image = {
     url: "/icon-512.png",

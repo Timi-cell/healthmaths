@@ -17,6 +17,13 @@ export default function Icon({
 
   let shape: ReactNode;
   switch (name) {
+    case "close":
+      shape = (
+        <>
+          <path d="m6 6 12 12M18 6 6 18" />
+        </>
+      );
+      break;
     case "all":
     case "formulas":
       shape = (
@@ -37,7 +44,15 @@ export default function Icon({
       shape = (
         <>
           <circle cx="12" cy="12" r="9" />
-          <path d="M12 7v5l3.5 2" />
+          <path d="M12 7v5l3.5 2" fill="none" />
+        </>
+      );
+      break;
+    case "new":
+      shape = (
+        <>
+          <path d="m12 2 1.8 6.2L20 10l-6.2 1.8L12 18l-1.8-6.2L4 10l6.2-1.8L12 2Z" />
+          <path d="m19 15 .9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9L19 15Z" />
         </>
       );
       break;
@@ -97,14 +112,6 @@ export default function Icon({
         <>
           <circle cx="12" cy="8" r="4" />
           <path d="M4.5 21a7.5 7.5 0 0 1 15 0M7 7a5 5 0 0 1 10 0" />
-        </>
-      );
-      break;
-    case "pharmacology":
-      shape = (
-        <>
-          <path d="M8 4h8a4 4 0 0 1 0 8H8a4 4 0 0 1 0-8Zm0 8h8a4 4 0 0 1 0 8H8a4 4 0 0 1 0-8Z" />
-          <path d="m9 5 6 6m-6 2 6 6" />
         </>
       );
       break;

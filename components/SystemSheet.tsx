@@ -1,120 +1,85 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { IC } from "@/lib/formulas";
 import Icon from "./Icon";
+
+export type CategoryMode = "systems" | "departments";
+const MODES: [CategoryMode, string][] = [
+  ["systems", "Body systems"],
+  ["departments", "Departments"],
+];
 
 type Props = {
   open: boolean;
   onClose: () => void;
-  systems: string[];
-  sys: string;
-  subsystems: string[];
-  subsystem: string;
-  onPick: (s: string) => void;
-  onPickSubsystem: (s: string) => void;
-  onBack: () => void;
+  mode: CategoryMode;
+  category: string;
+  categories: string[];
+  onPickMode: (mode: CategoryMode) => void;
+  onPickCategory: (category: string) => void;
 };
 
 export default function SystemSheet({
   open,
   onClose,
-  systems,
-  sys,
-  subsystems,
-  subsystem,
-  onPick,
-  onPickSubsystem,
-  onBack,
+  mode,
+  category,
+  categories,
+  onPickMode,
+  onPickCategory,
 }: Props) {
   const ref = useRef<HTMLDialogElement>(null);
-  const [section, setSection] = useState<"systems" | "cardiovascular">(
-    "systems",
-  );
   useEffect(() => {
-    const d = ref.current;
-    if (!d) return;
-    if (open && !d.open) d.showModal();
-    if (!open && d.open) d.close();
-    if (open) setSection(sys === "Cardiovascular" ? "cardiovascular" : "systems");
-  }, [open, sys]);
-
-  const selectSystem = (system: string) => {
-    if (system === "Cardiovascular") {
-      setSection("cardiovascular");
-      onPick(system);
-      return;
-    }
-    onPick(system);
-  };
-
-  const returnToSystems = () => {
-    setSection("systems");
-    onBack();
-  };
+    const dialog = ref.current;
+    if (!dialog) return;
+    if (open && !dialog.open) dialog.showModal();
+    if (!open && dialog.open) dialog.close();
+  }, [open]);
 
   return (
-    <dialog ref={ref} className="sheet" onClose={onClose}>
-      {section === "systems" ? (
-        <>
-          <h3>Body Systems</h3>
-          <div className="sgrid">
-            {systems.map((s) => (
-              <button
-                key={s}
-                className="stile"
-                aria-pressed={s === sys}
-                onClick={() => selectSystem(s)}
-              >
-                <Icon name={s === "All" ? "all" : IC[s]} />
-                {s === "All" ? "All systems" : s}
-              </button>
-            ))}
-          </div>
-        </>
-      ) : (
-        <>
-          <div className="sheet-heading">
-            <button
-              className="sheet-back"
-              aria-label="Back to body systems"
-              title="Back to body systems"
-              onClick={returnToSystems}
-            >
-              <Icon name="back" />
-            </button>
-            <h3>Cardiovascular</h3>
-          </div>
-          <div
-            className="ssubgrid"
-            role="group"
-            aria-label="Cardiovascular categories"
+    <dialog
+      ref={ref}
+      className="sheet"
+      aria-labelledby="library-dialog-title"
+      onClose={onClose}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <h3 id="library-dialog-title">Browse the library</h3>
+      <div className="category-modes" role="tablist" aria-label="Browse by">
+        {MODES.map(([value, label]) => (
+          <button
+            key={value}
+            className="category-mode"
+            role="tab"
+            aria-selected={mode === value}
+            onClick={() => onPickMode(value)}
           >
-            <button
-              className="stile"
-              aria-pressed={subsystem === "All"}
-              onClick={() => onPickSubsystem("All")}
-            >
-              <Icon name="heart" />
-              All cardiovascular
-            </button>
-            {subsystems.map((s) => (
-              <button
-                key={s}
-                className="stile"
-                aria-pressed={subsystem === s}
-                onClick={() => onPickSubsystem(s)}
-              >
-                <Icon name={IC[s]} />
-                {s}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
+            {label}
+          </button>
+        ))}
+      </div>
+      <div className="sgrid" role="group" aria-label={MODES.find(([value]) => value === mode)?.[1]}>
+        {categories.map((item) => (
+          <button
+            key={item}
+            className="stile"
+            aria-pressed={item === category}
+            onClick={() => onPickCategory(item)}
+          >
+            <Icon name={item === "All" ? "all" : IC[item] ?? "scale"} />
+            {item === "All"
+              ? `All ${mode === "systems" ? "body systems" : "departments"}`
+              : item}
+          </button>
+        ))}
+      </div>
       <button
         className="btn"
         style={{ width: "100%", marginTop: 12, minHeight: 48 }}
         onClick={onClose}
+        type="button"
       >
         Close
       </button>

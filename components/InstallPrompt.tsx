@@ -2,29 +2,18 @@
 import { useEffect, useState } from "react";
 
 type BIP = Event & { prompt: () => Promise<void> };
-type Snooze = { calculationsAtDismissal: number; activeMs: number };
+type Snooze = { activeMs: number };
 const KEY = "healthmaths:install-dismissed";
 const PERMANENTLY_DISMISSED = "installed";
 const REMINDER_DELAY = 10 * 60 * 1000;
-const CALCULATIONS_BEFORE_REMINDER = 5;
 
-function readSnooze(calculationCount: number): Snooze | null {
+function readSnooze(): Snooze | null {
   try {
     const saved = localStorage.getItem(KEY);
     if (!saved || saved === PERMANENTLY_DISMISSED) return null;
-    if (saved === "1") {
-      return { calculationsAtDismissal: calculationCount, activeMs: 0 };
-    }
+    if (saved === "1") return { activeMs: 0 };
     const value = JSON.parse(saved) as Partial<Snooze>;
-    if (
-      typeof value.calculationsAtDismissal === "number" &&
-      typeof value.activeMs === "number"
-    ) {
-      return {
-        calculationsAtDismissal: value.calculationsAtDismissal,
-        activeMs: value.activeMs,
-      };
-    }
+    if (typeof value.activeMs === "number") return { activeMs: value.activeMs };
   } catch {
     return null;
   }
@@ -40,13 +29,7 @@ function saveSnooze(snooze: Snooze) {
 }
 
 // Android/Chrome gives us an install event. iPhone has no such event, so we explain "Add to Home Screen".
-export default function InstallPrompt({
-  show,
-  calculationCount,
-}: {
-  show: boolean;
-  calculationCount: number;
-}) {
+export default function InstallPrompt({ show }: { show: boolean }) {
   const [evt, setEvt] = useState<BIP | null>(null);
   const [ios, setIos] = useState(false);
   const [installed, setInstalled] = useState(false);
@@ -88,8 +71,8 @@ export default function InstallPrompt({
   }, []);
 
   useEffect(() => {
-    setSnooze(readSnooze(calculationCount));
-  }, [calculationCount]);
+    setSnooze(readSnooze());
+  }, []);
 
   useEffect(() => {
     if (!snooze || snooze.activeMs >= REMINDER_DELAY) return;
@@ -109,10 +92,7 @@ export default function InstallPrompt({
   }, [snooze]);
 
   const remindAgain =
-    snooze !== null &&
-    (calculationCount - snooze.calculationsAtDismissal >=
-      CALCULATIONS_BEFORE_REMINDER ||
-      snooze.activeMs >= REMINDER_DELAY);
+    snooze !== null && snooze.activeMs >= REMINDER_DELAY;
 
   useEffect(() => {
     if (!remindAgain) return;
@@ -133,7 +113,7 @@ export default function InstallPrompt({
   )
     return null;
   const dismiss = () => {
-    const next = { calculationsAtDismissal: calculationCount, activeMs: 0 };
+    const next = { activeMs: 0 };
     saveSnooze(next);
     setSnooze(next);
   };
@@ -151,8 +131,8 @@ export default function InstallPrompt({
       <b>Install HealthMaths</b>
       <p>
         {evt
-          ? "It opens like an app, works offline, and keeps your history safe on this phone."
-          : "Tap the Share button in your browser, then “Add to Home Screen”. Installing keeps your history safe."}
+          ? "It opens like an app, works offline, and stores recent calculations on this device."
+          : "Tap the Share button in your browser, then “Add to Home Screen”. Your recent calculations stay on this device."}
       </p>
       <div className="actions">
         {evt && (

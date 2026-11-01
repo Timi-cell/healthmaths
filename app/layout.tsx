@@ -1,4 +1,3 @@
-import { Analytics } from "@vercel/analytics/next";
 import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
 import { Bricolage_Grotesque, Plus_Jakarta_Sans } from "next/font/google";
@@ -28,7 +27,7 @@ export async function generateMetadata(): Promise<Metadata> {
   );
   const title = "HealthMaths – Clinical formulas, worked step by step.";
   const description =
-    "Clinical formulas found under each body system, with every step shown and every unit handled.";
+    "Browse clinical formulas by body system or department, with formatted equations, worked steps and unit conversion.";
   return {
     metadataBase,
     title,
@@ -76,7 +75,6 @@ export default function RootLayout({
         {children}
         <WelcomeScreen />
         <RegisterSW />
-        <Analytics />
       </body>
     </html>
   );

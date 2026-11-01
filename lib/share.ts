@@ -12,7 +12,7 @@ export function formatResultForCopy(
   const inputs = formula.in
     .map((input) => {
       const value = values[input.id] ?? input.o?.[0] ?? "";
-      const unit = input.o
+      const unit = input.o || input.type === "date"
         ? ""
         : (units[input.id] ?? input.u ?? Object.keys(U[input.d ?? ""])[0]);
       return `${input.l} ${value}${unit ? ` ${unit}` : ""}`;

@@ -8,12 +8,16 @@ import {
   type CSSProperties,
   type MouseEvent,
 } from "react";
-import { F, IC, HU, type Formula } from "@/lib/formulas";
+import { F, HU, type Formula } from "@/lib/formulas";
+import AboutDialog from "./AboutDialog";
 import Calculator from "./Calculator";
 import FeedbackDialog from "./FeedbackDialog";
 import Icon from "./Icon";
 import InstallPrompt from "./InstallPrompt";
 import SystemSheet from "./SystemSheet";
+import WhatsNewDialog from "./WhatsNewDialog";
+import type { CategoryMode } from "./SystemSheet";
+import { WHATS_NEW } from "@/lib/whats-new";
 import { ENDPOINT, flush } from "@/lib/outbox";
 import {
   KEYS,
@@ -27,21 +31,17 @@ import {
 
 const ECG =
   "M0 40H150l10-4 8 4h14l8-8 12 52 12-70 12 26h12l10-6 14 6H420l10-4 8 4h14l8-8 12 52 12-70 12 26h12l10-6 14 6H600";
-type Tab = "all" | "used" | "history";
+type Tab = "all" | "used" | "history" | "whatsNew";
 type PendingDeletion =
   | { type: "used-item"; id: string }
   | { type: "history-item"; id: string }
   | { type: "clear-used" }
   | { type: "clear-history" };
-const CARDIOVASCULAR_SUBSYSTEMS = [
-  "Haemodynamics",
-  "Echo",
-  "ECG",
-  "Risk scores",
-  "Lipids",
+type WhatsNewState = { read: string[]; dismissed: string[] };
+const CATEGORY_MODES: [CategoryMode, string][] = [
+  ["systems", "Body systems"],
+  ["departments", "Departments"],
 ];
-const isCardiovascularSubsystem = (system: string) =>
-  CARDIOVASCULAR_SUBSYSTEMS.includes(system);
 const normalizeSearch = (value: string) =>
   value
     .normalize("NFD")
@@ -52,19 +52,23 @@ const TABS: [Tab, string, string][] = [
   ["all", "formulas", "Formulas"],
   ["used", "used", "Used"],
   ["history", "history", "History"],
+  ["whatsNew", "new", "What's New"],
 ];
 
 export default function App() {
   const [q, setQ] = useState("");
-  const [sys, setSys] = useState("All");
-  const [subSys, setSubSys] = useState("All");
+  const [categoryMode, setCategoryMode] = useState<CategoryMode>("systems");
+  const [category, setCategory] = useState("All");
   const [cur, setCur] = useState(F[0]);
   const [open, setOpen] = useState(false); // mobile: calculator full screen
   const [tab, setTab] = useState<Tab>("all");
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [hist, setHist] = useState<Entry[]>([]);
   const [used, setUsed] = useState<Used>({});
-  const [calculationCount, setCalculationCount] = useState(0);
+  const [whatsNew, setWhatsNew] = useState<WhatsNewState>({
+    read: [],
+    dismissed: [],
+  });
   const [ready, setReady] = useState(false);
   const [online, setOnline] = useState(true);
   const [seed, setSeed] = useState<{
@@ -73,41 +77,45 @@ export default function App() {
     units: Record<string, string>;
   } | null>(null);
   const [fb, setFb] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
   const [sheet, setSheet] = useState(false);
+  const [whatsNewOpen, setWhatsNewOpen] = useState(false);
+  const [animatedTab, setAnimatedTab] = useState<Tab | null>(null);
+  const [iconAnimation, setIconAnimation] = useState(0);
   const [pendingDeletion, setPendingDeletion] =
     useState<PendingDeletion | null>(null);
   const search = useRef<HTMLInputElement>(null);
   const calculator = useRef<HTMLDivElement>(null);
   const deleteDialog = useRef<HTMLDialogElement>(null);
-  const calculationCountRef = useRef(0);
 
-  const systems = useMemo(
-    () => [
-      "All",
-      ...new Set(
-        F.map((f) =>
-          isCardiovascularSubsystem(f.s) ? "Cardiovascular" : f.s,
-        ),
-      ),
-    ],
-    [],
+  const visibleUpdates = WHATS_NEW.filter(
+    (item) => !whatsNew.dismissed.includes(item.id),
   );
+  const unreadUpdates = visibleUpdates.filter(
+    (item) => !whatsNew.read.includes(item.id),
+  ).length;
+  const categories = useMemo(() => {
+    const labels =
+      categoryMode === "systems"
+        ? F.flatMap((formula) => formula.systems ?? [formula.s])
+        : F.flatMap((formula) => formula.departments ?? []);
+    return ["All", ...new Set(labels)];
+  }, [categoryMode]);
   const shown = useMemo(() => {
     const terms = normalizeSearch(q).split(/\s+/).filter(Boolean);
     return F.filter(
       (f) =>
-        (sys === "All" ||
-          (sys === "Cardiovascular"
-            ? isCardiovascularSubsystem(f.s) &&
-              (subSys === "All" || f.s === subSys)
-            : f.s === sys)) &&
+        (category === "All" ||
+          (categoryMode === "systems"
+            ? (f.systems ?? [f.s]).includes(category)
+            : (f.departments ?? []).includes(category))) &&
         terms.every((term) =>
           normalizeSearch(
-            `${f.n} ${f.al} ${f.s} ${isCardiovascularSubsystem(f.s) ? "Cardiovascular" : ""}`,
+            `${f.n} ${f.al} ${f.s} ${(f.systems ?? []).join(" ")} ${(f.departments ?? []).join(" ")}`,
           ).includes(term),
         ),
     );
-  }, [q, sys, subSys]);
+  }, [q, category, categoryMode]);
   const usedList = useMemo(
     () =>
       Object.entries(used)
@@ -123,14 +131,14 @@ export default function App() {
   useEffect(() => {
     setHist(load<Entry[]>(KEYS.history, []));
     setUsed(load<Used>(KEYS.used, {}));
-    calculationCountRef.current = load<number>(KEYS.calculations, 0);
-    setCalculationCount(calculationCountRef.current);
+    setWhatsNew(load<WhatsNewState>(KEYS.whatsNew, { read: [], dismissed: [] }));
     setReady(true);
   }, []);
   useEffect(() => {
     const savedTheme = load<"light" | "dark">(KEYS.theme, "light");
     setTheme(savedTheme === "dark" ? "dark" : "light");
-    document.documentElement.dataset.theme = savedTheme === "dark" ? "dark" : "light";
+    document.documentElement.dataset.theme =
+      savedTheme === "dark" ? "dark" : "light";
   }, []);
   useEffect(() => {
     if (ready) save(KEYS.history, hist);
@@ -138,6 +146,9 @@ export default function App() {
   useEffect(() => {
     if (ready) save(KEYS.used, used);
   }, [used, ready]);
+  useEffect(() => {
+    if (ready) save(KEYS.whatsNew, whatsNew);
+  }, [whatsNew, ready]);
   useEffect(() => {
     const dialog = deleteDialog.current;
     if (!dialog) return;
@@ -190,13 +201,14 @@ export default function App() {
     return () => window.removeEventListener("popstate", openFromAddress);
   }, []);
 
-  // Track connection; when it returns, send any feedback written while offline.
+  // Send queued feedback when connectivity returns.
   useEffect(() => {
     const update = () => setOnline(navigator.onLine);
     const sync = async () => {
       update();
-      if (!ENDPOINT || !navigator.onLine) return;
-      if ((await flush(ENDPOINT)) > 0)
+      if (!navigator.onLine) return;
+      const feedbackSent = await flush(ENDPOINT);
+      if (feedbackSent > 0)
         window.dispatchEvent(
           new CustomEvent("healthmaths:toast", {
             detail: "Your feedback was sent.",
@@ -231,9 +243,6 @@ export default function App() {
       ...u,
       [e.fid]: { count: (u[e.fid]?.count ?? 0) + 1, last: at },
     }));
-    calculationCountRef.current += 1;
-    setCalculationCount(calculationCountRef.current);
-    save(KEYS.calculations, calculationCountRef.current);
   }, []);
 
   const revealCalculator = () => {
@@ -272,13 +281,51 @@ export default function App() {
   const goTab = (t: Tab) => {
     setTab(t);
     setOpen(false);
+    setAnimatedTab(t === "whatsNew" ? null : t);
+    setIconAnimation((key) => key + 1);
     setFormulaAddress(undefined, true);
-    if (t === "all") window.scrollTo({ top: 0, behavior: "smooth" });
+    if (t === "whatsNew") {
+      setWhatsNewOpen(true);
+    } else {
+      setWhatsNewOpen(false);
+      if (t === "all") window.scrollTo({ top: 0, behavior: "smooth" });
+    }
   };
   const backToFormulas = () => {
     setTab("all");
     setOpen(false);
+    setWhatsNewOpen(false);
     setFormulaAddress(undefined, true);
+  };
+  const closeWhatsNew = () => {
+    setWhatsNewOpen(false);
+    setTab((current) => (current === "whatsNew" ? "all" : current));
+  };
+  const readAllUpdates = () => {
+    setWhatsNew((current) => ({
+      ...current,
+      read: [
+        ...new Set([
+          ...current.read,
+          ...WHATS_NEW.filter(
+            (item) => !current.dismissed.includes(item.id),
+          ).map((item) => item.id),
+        ]),
+      ],
+    }));
+  };
+  const clearAllUpdates = () => {
+    setWhatsNew((current) => ({
+      read: current.read,
+      dismissed: [
+        ...new Set([
+          ...current.dismissed,
+          ...WHATS_NEW.filter(
+            (item) => !current.dismissed.includes(item.id),
+          ).map((item) => item.id),
+        ]),
+      ],
+    }));
   };
   const toggleTheme = () => {
     const next = theme === "light" ? "dark" : "light";
@@ -291,7 +338,67 @@ export default function App() {
     e.currentTarget.style.setProperty("--mx", `${e.clientX - c.left}px`);
     e.currentTarget.style.setProperty("--my", `${e.clientY - c.top}px`);
   };
-  const hue = (f?: Formula) => ({ "--h": f ? HU[f.s] : 262 }) as CSSProperties;
+  const hue = (f?: Formula) =>
+    ({ "--h": f ? HU[f.systems?.[0] ?? f.s] : 262 }) as CSSProperties;
+  const navigationLabel = (key: Tab, label: string) => {
+    if (key === "whatsNew")
+      return (
+        <span className="whats-new-label">
+          What&apos;s{" "}
+          <span className="new-word">
+            New{unreadUpdates > 0 && <i className="update-dot" aria-hidden="true" />}
+          </span>
+          {unreadUpdates > 0 && (
+            <span className="visually-hidden">
+              , {unreadUpdates} unread update{unreadUpdates === 1 ? "" : "s"}
+            </span>
+          )}
+        </span>
+      );
+    if (key === "used") return `${label} · ${usedList.length}`;
+    if (key === "history") return `${label} · ${hist.length}`;
+    return label;
+  };
+  const deletionCopy = (() => {
+    switch (pendingDeletion?.type) {
+      case "clear-used":
+        return {
+          title: "Clear all used formulas?",
+          description:
+            "This removes every formula from your Used list on this device. This action cannot be undone.",
+          action: "Clear Used",
+        };
+      case "clear-history":
+        return {
+          title: "Clear all calculation history?",
+          description:
+            "This permanently removes all saved calculations from this device. This action cannot be undone.",
+          action: "Clear history",
+        };
+      case "used-item":
+        return {
+          title: "Remove this formula from Used?",
+          description: `${F.find((formula) => formula.id === pendingDeletion.id)?.n ?? "This formula"} will be removed from your Used list. Your calculation history will not be affected.`,
+          action: "Remove formula",
+        };
+      case "history-item": {
+        const entry = hist.find((item) => item.id === pendingDeletion.id);
+        return {
+          title: "Delete this calculation?",
+          description: entry
+            ? `${entry.n} · ${entry.t} will be permanently removed from your history.`
+            : "This calculation will be permanently removed from your history.",
+          action: "Delete calculation",
+        };
+      }
+      default:
+        return {
+          title: "",
+          description: "",
+          action: "Delete",
+        };
+    }
+  })();
 
   // A plain render function (not a nested component) so buttons keep their state between renders.
   const formulaKey = (f: Formula, sub?: string, compact?: boolean) =>
@@ -307,7 +414,14 @@ export default function App() {
     >
       <div>
         <b>{f.n}</b>
-        {!compact && <span>{sub ?? f.s}</span>}
+        {!compact && (
+          <span>
+            {sub ??
+              (f.kind === "outcome-measure"
+                ? "Outcome measure"
+                : (f.systems?.[0] ?? f.s))}
+          </span>
+        )}
       </div>
     </button>
   );
@@ -340,6 +454,13 @@ export default function App() {
           </div>
         </div>
         <div className="hero">
+          <button
+            className="about-trigger"
+            onClick={() => setAboutOpen(true)}
+            aria-haspopup="dialog"
+          >
+            About HealthMaths
+          </button>
           <h1>
             Maths in Healthcare,
             <br />
@@ -361,10 +482,10 @@ export default function App() {
             <path className="b" pathLength={1000} d={ECG} />
             <path className="p" pathLength={1000} d={ECG} />
           </svg>
-          <p className="tag">
-            Clinical formulas by body system, with every step shown and every
-            unit handled.
-          </p>
+          {/* <p className="tag">
+            Clinical formulas by body system or department, with clear
+            equations, worked steps and unit conversion.
+          </p> */}
           {/* <div className="stats">
             <span>
               <b>{F.length}</b> formulas
@@ -431,62 +552,50 @@ export default function App() {
               <kbd>/</kbd>
             )}
           </div>
-          <button
-            className="sysbtn"
-            onClick={() => setSheet(true)}
-            aria-label="Choose formula category"
-          >
-            <Icon name={sys === "All" ? "all" : IC[sys]} />
-            <span>
-              {subSys !== "All"
-                ? subSys
-                : sys === "All"
-                  ? "All systems"
-                  : sys}
-            </span>
-          </button>
         </div>
       </div>
       <div
-        className="wrap chips"
+        className="wrap category-toolbar"
         role="group"
-        aria-label="Filter by category"
+        aria-label="Browse by body system or department"
       >
-        {systems.map((s) => (
+        {CATEGORY_MODES.map(([mode, label]) => (
           <button
-            key={s}
-            className="chip"
-            aria-pressed={s === sys}
+            key={mode}
+            className={`category-mode${categoryMode === mode && category !== "All" ? " category-selected" : ""}`}
+            aria-pressed={categoryMode === mode}
+            aria-label={`${label}${categoryMode === mode && category !== "All" ? `: ${category}` : ""}`}
             onClick={() => {
-              setSys(s);
-              setSubSys("All");
+              if (categoryMode !== mode) setCategory("All");
+              setCategoryMode(mode);
               setTab("all");
-              if (s === "Cardiovascular") setSheet(true);
+              setSheet(true);
             }}
           >
-            <Icon name={s === "All" ? "all" : IC[s]} />
-            {s === "All" ? "All" : s}
+            <Icon name={mode === "systems" ? "all" : "scale"} />
+            <span className="category-label">{label}</span>
+            <span className="category-choice">
+              {categoryMode === mode && category !== "All"
+                ? category
+                : "Choose"}
+            </span>
           </button>
         ))}
       </div>
-      {sys !== "All" && (
+      {/* {category !== "All" && (
         <div className="wrap filter-context" aria-live="polite">
-          <span>Selected:</span>
-          <strong>
-            {sys}
-            {sys === "Cardiovascular" && subSys !== "All" ? ` · ${subSys}` : ""}
-          </strong>
+          <span>
+            {categoryMode === "systems" ? "Body System" : "Department"}:
+          </span>
+          <strong>{category}</strong>
         </div>
-      )}
+      )} */}
 
       <main>
         <div className="left">
-          <InstallPrompt
-            show={hist.length > 0}
-            calculationCount={calculationCount}
-          />
+          <InstallPrompt show={hist.length > 0} />
           <div className="tabs" role="tablist" aria-label="Library">
-            {TABS.map(([k, , l]) => (
+            {TABS.map(([k, icon, l]) => (
               <button
                 key={k}
                 role="tab"
@@ -494,9 +603,16 @@ export default function App() {
                 aria-selected={tab === k}
                 onClick={() => goTab(k)}
               >
-                {k === "used" && usedList.length
-                  ? `${l} · ${usedList.length}`
-                  : l}
+                <Icon
+                  key={`${k}-${animatedTab === k ? iconAnimation : "idle"}`}
+                  name={icon}
+                  className={
+                    animatedTab === k && k !== "whatsNew"
+                      ? "nav-icon-animated"
+                      : ""
+                  }
+                />
+                {navigationLabel(k, l)}
               </button>
             ))}
           </div>
@@ -507,8 +623,7 @@ export default function App() {
                 shown.map((f) => formulaBtn(f))
               ) : (
                 <div className="empty">
-                  No formula found. Try another word, or request it with the
-                  link below.
+                  No formula found. Try another word or request for the formula using the "Send Feedback" button.
                 </div>
               ))}
             {tab === "used" &&
@@ -517,7 +632,7 @@ export default function App() {
                   <div className="list-tools">
                     <span>Formulas you’ve used</span>
                     <button
-                      className="btn"
+                      className="btn danger-outline"
                       aria-label="Clear all used formulas"
                       onClick={() => setPendingDeletion({ type: "clear-used" })}
                     >
@@ -551,7 +666,7 @@ export default function App() {
                   <div className="list-tools">
                     <span>Recent calculations</span>
                     <button
-                      className="btn"
+                      className="btn danger-outline"
                       aria-label="Clear all history"
                       onClick={() =>
                         setPendingDeletion({ type: "clear-history" })
@@ -618,9 +733,9 @@ export default function App() {
           For education and decision support only. HealthMaths does not replace
           clinical judgment. Always check results against your local protocol.
         </span>
-        <button className="linkbtn" onClick={() => setFb(true)}>
+        {/* <button className="linkbtn" onClick={() => setFb(true)}>
           Request a formula or send feedback
-        </button>
+        </button> */}
       </footer>
       <button
         className="btn feedback-fab"
@@ -631,62 +746,83 @@ export default function App() {
         Send feedback
       </button>
       <FeedbackDialog open={fb} onClose={() => setFb(false)} />
+      <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} />
+      <WhatsNewDialog
+        open={whatsNewOpen}
+        onClose={closeWhatsNew}
+        entries={visibleUpdates}
+        unreadCount={unreadUpdates}
+        onReadAll={readAllUpdates}
+        onClearAll={clearAllUpdates}
+      />
       <dialog
         ref={deleteDialog}
+        className="delete-dialog"
         aria-labelledby="delete-confirmation-title"
+        aria-describedby="delete-confirmation-description"
         onClose={() => setPendingDeletion(null)}
       >
-        <h3 id="delete-confirmation-title">
-          {pendingDeletion?.type === "clear-used" ||
-          pendingDeletion?.type === "clear-history"
-            ? "Are you sure you want to clear all?"
-            : "Are you sure?"}
-        </h3>
+        <div className="delete-dialog-icon" aria-hidden="true">
+          !
+        </div>
+        <h3 id="delete-confirmation-title">{deletionCopy.title}</h3>
+        <p id="delete-confirmation-description">{deletionCopy.description}</p>
         <div className="actions">
-          <button className="btn" onClick={confirmDeletion}>
-            Yes
-          </button>
           <button
             className="btn"
+            type="button"
             onClick={() => setPendingDeletion(null)}
             autoFocus
           >
-            No
+            Cancel
+          </button>
+          <button
+            className="btn danger"
+            type="button"
+            onClick={confirmDeletion}
+          >
+            {deletionCopy.action}
           </button>
         </div>
       </dialog>
       <SystemSheet
         open={sheet}
         onClose={() => setSheet(false)}
-        systems={systems}
-        sys={sys}
-        subsystems={CARDIOVASCULAR_SUBSYSTEMS}
-        subsystem={subSys}
-        onPick={(s) => {
-          setSys(s);
-          setSubSys("All");
+        mode={categoryMode}
+        categories={categories}
+        category={category}
+        onPickMode={(mode) => {
+          if (categoryMode !== mode) setCategory("All");
+          setCategoryMode(mode);
           setTab("all");
-          if (s !== "Cardiovascular") setSheet(false);
         }}
-        onPickSubsystem={(s) => {
-          setSys("Cardiovascular");
-          setSubSys(s);
+        onPickCategory={(item) => {
+          setCategory(item);
           setTab("all");
           setSheet(false);
-        }}
-        onBack={() => {
-          setSys("All");
-          setSubSys("All");
-          setTab("all");
         }}
       />
 
       {/* Phone navigation, in the thumb zone */}
       <nav className="bnav" aria-label="Main">
         {TABS.map(([k, icon, l]) => (
-          <button key={k} aria-current={tab === k} onClick={() => goTab(k)}>
-            <Icon name={icon} />
-            <span>{l}</span>
+          <button
+            key={k}
+            aria-current={tab === k}
+            onClick={() => goTab(k)}
+          >
+            <Icon
+              key={`${k}-${animatedTab === k ? iconAnimation : "idle"}`}
+              name={icon}
+              className={
+                animatedTab === k && k !== "whatsNew"
+                  ? "nav-icon-animated"
+                  : ""
+              }
+            />
+            <span>
+              {navigationLabel(k, l)}
+            </span>
           </button>
         ))}
       </nav>

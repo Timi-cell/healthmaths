@@ -5,6 +5,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type ReactNode,
 } from "react";
 import { HU, type Formula } from "@/lib/formulas";
 import { U, r } from "@/lib/units";
@@ -18,6 +19,78 @@ const unitOf = (
   d: string,
   u?: string,
 ) => units[id] ?? u ?? Object.keys(U[d])[0];
+
+function renderStep(step: string): ReactNode {
+  const divisionIndex = step.search(/[÷/]/);
+  if (divisionIndex < 0) return step;
+
+  const left = step.slice(0, divisionIndex);
+  const right = step.slice(divisionIndex + 1);
+  let numeratorStart = -1;
+  if (left.trimEnd().endsWith(")")) {
+    let depth = 0;
+    for (let index = left.length - 1; index >= 0; index--) {
+      if (left[index] === ")") depth++;
+      if (left[index] === "(" && --depth === 0) {
+        numeratorStart = index;
+        break;
+      }
+    }
+  }
+  if (numeratorStart < 0) {
+    for (const boundary of [" = ", " × ", " + ", " − ", "; "]) {
+      const index = left.lastIndexOf(boundary);
+      if (index >= 0)
+        numeratorStart = Math.max(numeratorStart, index + boundary.length);
+    }
+  }
+  if (numeratorStart < 0) numeratorStart = 0;
+
+  let prefix = left.slice(0, numeratorStart);
+  let numerator = left.slice(numeratorStart).trim();
+  if (numerator.startsWith("(") && !numerator.includes(")")) {
+    prefix += "(";
+    numerator = numerator.slice(1).trimStart();
+  }
+  let denominatorEnd = right.length;
+  if (right.trimStart().startsWith("(")) {
+    const opening = right.indexOf("(");
+    let depth = 0;
+    for (let index = opening; index < right.length; index++) {
+      if (right[index] === "(") depth++;
+      if (right[index] === ")" && --depth === 0) {
+        denominatorEnd = index + 1;
+        break;
+      }
+    }
+  } else {
+    for (const boundary of [" = ", " × ", " + ", " − ", "; "]) {
+      const index = right.indexOf(boundary);
+      if (index >= 0) denominatorEnd = Math.min(denominatorEnd, index);
+    }
+  }
+
+  let denominator = right.slice(0, denominatorEnd).trim();
+  let suffix = right.slice(denominatorEnd);
+  if (prefix.trimEnd().endsWith("(") && denominator.endsWith(")")) {
+    denominator = denominator.slice(0, -1).trimEnd();
+    suffix = `)${suffix}`;
+  }
+
+  return (
+    <>
+      {prefix && <span>{prefix}</span>}
+      <span
+        className="fraction step-fraction"
+        aria-label={`${numerator} divided by ${denominator}`}
+      >
+        <span>{numerator}</span>
+        <span>{denominator}</span>
+      </span>
+      {suffix && <span>{suffix}</span>}
+    </>
+  );
+}
 
 // Animates a number towards its target value.
 function useCount(to: number, dp: number) {
@@ -55,12 +128,22 @@ export default function Calculator({ f, seed, onResult, onBack }: Props) {
   const [vals, setVals] = useState<Record<string, string>>(seed?.vals ?? {});
   const [units, setUnits] = useState<Record<string, string>>(seed?.units ?? {});
   const [pick, setPick] = useState<string | null>(null);
+  const [submitted, setSubmitted] = useState(Boolean(seed));
+  const selectionOnly =
+    f.in.length > 0 && f.in.every((input) => Boolean(input.o));
 
   // Read inputs -> convert to base units -> validate -> run the formula.
   const calc = useMemo(() => {
     const v: Record<string, number> = {};
     for (const i of f.in) {
       const raw = vals[i.id];
+      if (i.type === "date") {
+        if (!raw) return {};
+        const date = Date.parse(`${raw}T00:00:00Z`);
+        if (!Number.isFinite(date)) return {};
+        v[i.id] = date / 86400000;
+        continue;
+      }
       if (i.o) {
         v[i.id] = Math.max(0, i.o.indexOf(raw ?? i.o[0]));
         continue;
@@ -90,25 +173,52 @@ export default function Calculator({ f, seed, onResult, onBack }: Props) {
     f.out === "ca" && outU === "mmol/L"
       ? 2
       : (f.dg ?? (["time", "press", "ratio", "crcl"].includes(f.out) ? 0 : 1));
-  const shown = useCount(res ? res.val / k : 0, dp);
-  const text = res && outU ? `${r(res.val / k, dp)} ${outU}` : "";
+  const resultValue = (value: number) =>
+    f.out === "date"
+      ? new Intl.DateTimeFormat("en-GB", {
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+          timeZone: "UTC",
+        }).format(new Date(value * 86400000))
+      : r(value / k, dp);
+  const animatedValue = useCount(res ? res.val / k : 0, dp);
+  const shown = f.out === "date" ? (res ? resultValue(res.val) : "") : animatedValue;
+  const text =
+    res && outU
+      ? `${resultValue(res.val)}${f.out === "date" ? "" : ` ${outU}`}`
+      : "";
   const formulaUrl = () =>
     `${window.location.origin}/?f=${encodeURIComponent(f.id)}`;
 
-  // Save to history once the user stops typing.
+  // Patient-value calculations are saved after input settles; option-only scores are explicit.
   useEffect(() => {
-    if (!text || Object.keys(vals).length === 0) return;
+    if (selectionOnly || !text || Object.keys(vals).length === 0) return;
     const id = setTimeout(
       () => onResult({ fid: f.id, n: f.n, t: text, vals, units }),
       1500,
     );
     return () => clearTimeout(id);
-  }, [text, f.id, f.n, vals, units, onResult]);
+  }, [selectionOnly, text, f.id, f.n, vals, units, onResult]);
 
   const reset = () => {
     setVals({});
     setUnits({});
     setPick(null);
+    setSubmitted(false);
+  };
+  const updateValue = (id: string, value: string) => {
+    setVals((current) => ({ ...current, [id]: value }));
+    setSubmitted(false);
+  };
+  const updateUnit = (id: string, unit: string) => {
+    setUnits((current) => ({ ...current, [id]: unit }));
+    setSubmitted(false);
+  };
+  const getResult = () => {
+    if (!res || !text || submitted) return;
+    onResult({ fid: f.id, n: f.n, t: text, vals, units });
+    setSubmitted(true);
   };
   const notify = (message: string) =>
     window.dispatchEvent(
@@ -174,22 +284,33 @@ export default function Calculator({ f, seed, onResult, onBack }: Props) {
     <>
       <section
         className="calc"
-        style={{ "--h": HU[f.s] } as CSSProperties}
+        style={{ "--h": HU[f.systems?.[0] ?? f.s] } as CSSProperties}
         aria-live="polite"
       >
-        <span className="sys">{f.s}</span>
+        <span className="sys">
+          {f.kind === "outcome-measure"
+            ? "Outcome Measure"
+            : (f.systems?.[0] ?? f.s)}
+        </span>
         <h2>{f.n}</h2>
         <p className="desc">{f.d}</p>
 
         {f.in.map((i) => (
           <div className="field" key={i.id}>
             <label htmlFor={`f_${i.id}`}>{i.l}</label>
-            {i.o ? (
+            {i.type === "date" ? (
+              <input
+                id={`f_${i.id}`}
+                type="date"
+                value={vals[i.id] ?? ""}
+                onChange={(e) => updateValue(i.id, e.target.value)}
+              />
+            ) : i.o ? (
               <select
                 className="sel"
                 id={`f_${i.id}`}
                 value={vals[i.id] ?? i.o[0]}
-                onChange={(e) => setVals({ ...vals, [i.id]: e.target.value })}
+                onChange={(e) => updateValue(i.id, e.target.value)}
               >
                 {i.o.map((o) => (
                   <option key={o}>{o}</option>
@@ -204,14 +325,13 @@ export default function Calculator({ f, seed, onResult, onBack }: Props) {
                   step="any"
                   placeholder="0"
                   value={vals[i.id] ?? ""}
-                  onChange={(e) => setVals({ ...vals, [i.id]: e.target.value })}
+                  onChange={(e) => updateValue(i.id, e.target.value)}
+                  onWheel={(e) => e.currentTarget.blur()}
                 />
                 <select
                   aria-label={`${i.l} unit`}
                   value={unitOf(units, i.id, i.d ?? "", i.u)}
-                  onChange={(e) =>
-                    setUnits({ ...units, [i.id]: e.target.value })
-                  }
+                  onChange={(e) => updateUnit(i.id, e.target.value)}
                 >
                   {Object.keys(U[i.d ?? ""]).map((u) => (
                     <option key={u}>{u}</option>
@@ -227,13 +347,25 @@ export default function Calculator({ f, seed, onResult, onBack }: Props) {
             Reset
           </button>
         </div>
+        {selectionOnly && (
+          <div className="get-result-wrap">
+            <button
+              className="btn get-result-btn"
+              type="button"
+              onClick={getResult}
+              disabled={!res || submitted}
+            >
+              {submitted ? "Result added to history" : "Get Result"}
+            </button>
+          </div>
+        )}
         <p className="err">{calc.err}</p>
 
-        {res ? (
+        {res && (!selectionOnly || submitted) ? (
           <div className="result">
             <div className="rrow">
               <span className="big">{shown}</span>
-              {outs.length > 1 ? (
+              {f.out === "date" ? null : outs.length > 1 ? (
                 <select
                   aria-label="Result unit"
                   value={outU}
@@ -257,20 +389,67 @@ export default function Calculator({ f, seed, onResult, onBack }: Props) {
                 Share Link
               </button>
             </div>
-            <details>
+            <details open>
               <summary>Calculation Steps</summary>
-              <ol>
+              {f.math && (
+                <div className="formula-display" aria-label="Formula">
+                  <strong>{f.math.label} =</strong>
+                  {f.math.numerator && f.math.denominator ? (
+                    <>
+                      {f.math.prefix && (
+                        <span className="formula-prefix">{f.math.prefix}</span>
+                      )}
+                      {f.math.radical && <span className="radical">√(</span>}
+                      <span
+                        className="fraction"
+                        aria-label={`${f.math.numerator} divided by ${f.math.denominator}`}
+                      >
+                        <span>{f.math.numerator}</span>
+                        <span>{f.math.denominator}</span>
+                      </span>
+                      {f.math.radical && <span className="radical">)</span>}
+                      {f.math.suffix && (
+                        <span className="formula-suffix">{f.math.suffix}</span>
+                      )}
+                    </>
+                  ) : (
+                    <span className="formula-expression">{f.math.rhs}</span>
+                  )}
+                  {f.math.numerator && f.math.denominator && f.math.rhs && (
+                    <span className="formula-trailing">{f.math.rhs}</span>
+                  )}
+                </div>
+              )}
+              <ol className="calc-steps">
                 {res.steps.map((s, i) => (
-                  <li key={i}>{s}</li>
+                  <li key={i}>
+                    <span className="step-equation">{renderStep(s)}</span>
+                  </li>
                 ))}
               </ol>
             </details>
-            <p className="src">Source: {f.src}</p>
-            {f.lim && <p className="src">Limitation: {f.lim}</p>}
+            <details className="more-notes">
+              <summary>More Notes</summary>
+              <div className="more-notes-content">
+                {(Array.isArray(f.more)
+                  ? f.more
+                  : [
+                      f.more ??
+                        `${f.d} This calculator applies the stated formula to the values entered. Check the source and limitations below before interpreting the result.`,
+                    ]
+                ).map((paragraph, index) => (
+                  <p key={index}>{paragraph}</p>
+                ))}
+                <p className="src">Source: {f.src}</p>
+                {f.lim && <p className="src">Limitation: {f.lim}</p>}
+              </div>
+            </details>
           </div>
         ) : (
           <div className="result idle">
-            Enter the values above and the result appears here.
+            {selectionOnly
+              ? "Choose the options above, then select Get Result."
+              : "Enter the values above and the result appears here."}
           </div>
         )}
       </section>

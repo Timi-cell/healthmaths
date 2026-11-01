@@ -1,55 +1,46 @@
 # HealthMaths
 
-HealthMaths v1.0 is a clinical calculator app. It helps clinicians, students, and curious users quickly compute values, review the calculation steps, and keep a local history of recent work without creating an account.
-
-## Overview
-
-The app is built with Next.js (App Router), TypeScript, and Tailwind CSS. It provides a searchable catalog of formulas grouped by body system, each with:
-
-- clear input fields and unit handling
-- step-by-step calculation explanations
-- result interpretation and thresholds
-- search, filtering, and recent usage tracking
-- offline-first data persistence and installable PWA behavior
+HealthMaths is a clinical calculation reference for healthcare professionals, students, and anyone learning how common healthcare formulas work. It helps users find a calculator, enter values with unit conversion, and review the equation and worked steps behind each result.
 
 ## Features
 
-- Searchable formula library across body systems
-- Unit-aware inputs and conversions
-- Formula-by-formula explanations and result notes
-- Local history and “Used” tracking saved on the device
-- Mobile-first responsive interface with desktop support
-- Installable app experience and offline support via service worker
-- Optional feedback form that queues offline submissions until connectivity returns
+- Search and browse formulas by **body system** or **department**
+- Formatted equations, readable calculation steps, sources, limitations, and notes
+- Unit-aware inputs and outputs
+- Local **Used** and calculation **History** lists
+- A **What's New** feed for future formula releases, fixes, and app updates
+- Physiotherapy measures including TUG, six-minute walk distance, gait speed, chair stand, and percentage change
+- Obstetric dating including estimated due date and gestational age from LMP
+- NEWS2, Winter’s formula, and corrected sodium in hyperglycaemia
+- Installable, offline-capable PWA
+- Optional feedback form that queues a user-submitted message while offline
+- Light and dark themes
+
+There are no accounts, school profiles, shared usage statistics, or formula-use analytics. Calculations, history, and Used counts stay in the browser on the user’s device. Feedback is sent only when the user chooses to submit it.
 
 ## Tech stack
 
-- Next.js 15
+- Next.js 15 (App Router)
 - React 19
 - TypeScript
 - Tailwind CSS v4
-- Vitest for testing
+- Vitest
 
 ## Getting started
 
 ### Prerequisites
 
-- Node.js 18+ (recommended: current LTS)
+- Node.js 18+ (current LTS recommended)
 - npm
 
-### Install dependencies
+### Install dependencies and run locally
 
 ```bash
 npm install
-```
-
-### Run the app locally
-
-```bash
 npm run dev
 ```
 
-Then open http://localhost:3000
+Open http://localhost:3000.
 
 ### Production build
 
@@ -69,54 +60,58 @@ npm test         # run the test suite
 
 ## Environment variables
 
-The app includes an example environment file:
+The optional feedback endpoint can use the following server-side variables:
 
-```bash
-cp .env.example .env.local
+```text
+RESEND_API_KEY=
+FEEDBACK_TO_EMAIL=
 ```
-
 
 ## Project structure
 
 ```text
 app/                 Application routes and entry points
-components/         UI components and calculator views
-lib/                Formula registry, unit logic, local storage, feedback queue
-public/             Static assets served by the app
-scripts/            Build and asset generation utilities
-sw/                  Service worker template source
-tests/               Automated tests for formulas and logic
+components/          UI components and calculator views
+lib/                 Formula registry, unit logic, local storage, feedback queue
+public/               Static assets served by the app
+scripts/              Build and asset generation utilities
+sw/                   Service worker template source
+tests/                Automated tests for formulas and logic
 ```
 
 Key implementation files:
 
-- `lib/formulas.ts` — formula registry and clinical calculators
+- `lib/formulas.ts` — formula registry, equations, and clinical calculators
+- `lib/whats-new.ts` — release notes shown in the What's New popup
+- `lib/cardio.ts` — cardiovascular calculator set
 - `lib/units.ts` — unit tables and conversion helpers
-- `components/App.tsx` — primary app shell and state orchestration
-- `components/Calculator.tsx` — calculator UI and result renderer
-- `sw/sw.template.js` — service worker source; generated output lives in `public/sw.js`
+- `lib/store.ts` — local history and Used data
+- `components/App.tsx` — app shell, browse filters, and local state
+- `components/Calculator.tsx` — calculator inputs, result, equation, and steps
+- `sw/sw.template.js` — service-worker source; generated output lives in `public/sw.js`
 
-## Offline-first behavior
+## Offline and local data
 
-HealthMaths is designed for a lightweight offline experience:
+- History and Used counts are saved in browser `localStorage`; they are not uploaded or backed up. Clearing browser or site data can remove them.
+- Installing the app enables offline use after the app has been loaded. The service worker checks for updates when the app is opened, resumed, or brought back online.
+- Feedback messages may be queued locally while offline and are sent after connectivity returns.
 
-- calculation history and usage data are stored locally in the browser
-- the app can install as a PWA and work without a network connection after the first load
-- each calculator can be opened directly with its `/?f=<formula-id>` link; the app checks for service-worker updates when opened, resumed, or brought back online and offers an in-app update action
-- the welcome screen appears on a browser's first visit and each time the installed app is launched
-- feedback submissions are queued locally and sent when connectivity returns
-- service worker assets are generated automatically during build and dev startup via `scripts/build-sw.mjs`
+IndexedDB is not used as a special iOS persistence safeguard. Safari/WebKit manages IndexedDB as origin storage too, and browser-managed storage can still be evicted. See [MDN’s storage eviction overview](https://developer.mozilla.org/en-US/docs/Web/API/Storage_API/Storage_quotas_and_eviction_criteria) and [WebKit’s storage policy](https://webkit.org/blog/10218/full-third-party-cookie-blocking-and-more/).
+
+## Formula catalog and clinical use
+
+The same calculator may be relevant to more than one department. For example, the paediatric 4–2–1 maintenance-fluid estimate is listed under both Paediatrics and Surgery. Cardiovascular calculators are grouped under the Cardiovascular body system rather than separate ECG, echo, haemodynamics, risk-score, and lipid categories.
+
+The catalogue includes NEWS2, Winter’s formula, and a corrected-sodium estimate for hyperglycaemia. NEWS2 is based on the [Royal College of Physicians’ NEWS2 resources](https://www.rcp.ac.uk/resources/national-early-warning-score-news-2/); corrected sodium uses the coefficient reviewed by [Tzamaloukas et al.](https://pmc.ncbi.nlm.nih.gov/articles/PMC7479837/). Each calculator includes its source and relevant limitations. Use local protocols and clinical judgement; scores and estimates do not replace assessment or treatment guidance.
+
+To publish a What's New message, add a new uniquely identified entry to `lib/whats-new.ts`. Unread entries show a badge until read; users can mark all visible entries as read or dismiss them on their device.
+
+Pharmacology dosing calculators are not included in the launch catalogue.
 
 ## Testing
 
-The project uses Vitest to validate formula logic, unit conversions, and registry integrity.
+The project uses Vitest to validate formula logic, unit conversions, and registry integrity. Add or update worked examples in `tests/formulas.test.ts` when changing the formula library.
 
 ```bash
 npm test
 ```
-
-When adding a new formula, add or update a worked example in `tests/formulas.test.ts` to keep the formula library verified.
-
-## Notes
-
-This project is a clinical calculation utility and should be used as a decision-support tool. Always verify formula assumptions and clinical context before relying on outputs in practice.
