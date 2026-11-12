@@ -32,6 +32,16 @@ export const U: Record<string, Record<string, number>> = {
   walkDist: { m: 1, cm: 0.01, ft: 0.3048 },
   gestAge: { weeks: 1 },
   count: { repetitions: 1 },
+  osmol: { "mOsm/kg": 1 },
+  mmolAmount: { mmol: 1, mEq: 1 },
+  bilirubin: { "mg/dL": 1, "µmol/L": 1 / 17.1 },
+  inr: { INR: 1 },
+  glucose: { "mmol/L": 1, "mg/dL": 1 / 18 },
+  insulin: { "µU/mL": 1 },
+  urineAlbumin: { "mg/L": 1 },
+  urineCreatinine: { "mmol/L": 1 },
+  acr: { "mg/mmol": 1, "mg/g": 1 / 8.84 },
+  ratioIndex: { ratio: 1 },
 };
 
 export const r = (x: number, d = 1): string =>

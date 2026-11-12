@@ -1060,6 +1060,643 @@ export const F: Formula[] = [
       };
     },
   },
+  {
+    id: "potassium-deficit",
+    n: "Estimated potassium deficit",
+    al: "potassium deficit hypokalaemia potassium replacement estimate",
+    s: "Renal",
+    d: "Estimates a possible total-body potassium deficit from body weight and the gap between measured and selected target potassium.",
+    src: "Approximate clinical rule of thumb using an estimated potassium distribution volume of 0.4 L/kg",
+    lim: "This is a rough total-body deficit estimate, not a replacement dose or prescription. Serum potassium does not reliably predict total-body stores; account for renal function, ongoing losses, ECG, magnesium, route and local monitoring protocols.",
+    in: [
+      { id: "w", l: "Body weight", d: "mass", min: 2, max: 300 },
+      { id: "k", l: "Measured serum potassium", d: "mmol", min: 1, max: 8 },
+      { id: "target", l: "Selected target potassium", d: "mmol", min: 3.5, max: 5.5 },
+    ],
+    out: "mmolAmount",
+    dg: 0,
+    math: {
+      label: "Estimated K⁺ deficit",
+      rhs: "max(0, target K⁺ − measured K⁺) × weight (kg) × 0.4 L/kg",
+    },
+    f: (v) => {
+      const gap = Math.max(0, v.target - v.k);
+      const deficit = gap * v.w * 0.4;
+      return {
+        val: deficit,
+        steps: [
+          `Potassium gap = max(0, ${r(v.target, 1)} − ${r(v.k, 1)}) = ${r(gap, 1)} mmol/L`,
+          `Estimated deficit = ${r(gap, 1)} × ${r(v.w, 1)} × 0.4 = ${r(deficit, 0)} mmol`,
+        ],
+        note: gap === 0
+          ? "No deficit is estimated relative to the selected target."
+          : "Approximate estimate only; it must not be used as a potassium replacement dose.",
+      };
+    },
+  },
+  {
+    id: "serum-osmolality",
+    n: "Calculated serum osmolality",
+    al: "serum osmolality sodium glucose urea osmolarity",
+    s: "Renal",
+    d: "Estimates serum osmolality from sodium, glucose and urea reported in mmol/L.",
+    src: "Standard calculated serum osmolality equation",
+    lim: "This estimate assumes inputs use mmol/L. Use measured osmolality and clinical context when assessing suspected toxic alcohol exposure or a significant osmolar gap.",
+    in: [
+      { id: "na", l: "Serum sodium", d: "mmol", min: 80, max: 200 },
+      { id: "glucose", l: "Serum glucose", d: "glucose", min: 0.1, max: 100 },
+      { id: "urea", l: "Serum urea", d: "urea", min: 0.1, max: 100 },
+    ],
+    out: "osmol",
+    dg: 0,
+    math: { label: "Calculated osmolality", rhs: "2 × Na⁺ + glucose + urea (all in mmol/L)" },
+    departments: ["Medicine", "Nephrology", "Emergency Medicine", "Intensive Care"],
+    f: (v) => {
+      const value = 2 * v.na + v.glucose + v.urea;
+      return {
+        val: value,
+        steps: [
+          `2 × sodium = 2 × ${r(v.na, 1)} = ${r(2 * v.na, 1)} mOsm/kg`,
+          `Add glucose and urea = ${r(2 * v.na, 1)} + ${r(v.glucose, 1)} + ${r(v.urea, 1)} = ${r(value, 0)} mOsm/kg`,
+        ],
+      };
+    },
+  },
+  {
+    id: "osmolar-gap",
+    n: "Osmolar gap",
+    al: "osmolar gap osmolality toxic alcohol calculated measured",
+    s: "Renal",
+    d: "Subtracts calculated serum osmolality from measured osmolality to estimate the osmolar gap.",
+    src: "Standard osmolar gap calculation",
+    lim: "A normal gap does not exclude toxic alcohol poisoning, and an elevated gap is not specific. Calculated osmolality should include sodium, glucose and urea in mmol/L; interpret urgently with clinical context and local toxicology guidance.",
+    in: [
+      { id: "measured", l: "Measured serum osmolality", d: "osmol", min: 100, max: 500 },
+      { id: "na", l: "Serum sodium", d: "mmol", min: 80, max: 200 },
+      { id: "glucose", l: "Serum glucose", d: "glucose", min: 0.1, max: 100 },
+      { id: "urea", l: "Serum urea", d: "urea", min: 0.1, max: 100 },
+    ],
+    out: "osmol",
+    dg: 0,
+    math: { label: "Osmolar gap", rhs: "Measured osmolality − (2 × Na⁺ + glucose + urea)" },
+    departments: ["Emergency Medicine", "Intensive Care", "Nephrology", "Medicine"],
+    f: (v) => {
+      const calculated = 2 * v.na + v.glucose + v.urea;
+      const gap = v.measured - calculated;
+      return {
+        val: gap,
+        steps: [
+          `Calculated osmolality = 2 × ${r(v.na, 1)} + ${r(v.glucose, 1)} + ${r(v.urea, 1)} = ${r(calculated, 0)} mOsm/kg`,
+          `Osmolar gap = ${r(v.measured, 0)} − ${r(calculated, 0)} = ${r(gap, 0)} mOsm/kg`,
+        ],
+        note: "Reference ranges vary by laboratory; this result alone cannot confirm or exclude poisoning.",
+      };
+    },
+  },
+  {
+    id: "free-water-deficit",
+    n: "Free water deficit estimate",
+    al: "free water deficit hypernatraemia sodium water estimate",
+    s: "Renal",
+    d: "Estimates a free-water deficit from body weight, selected total-body-water fraction and serum sodium.",
+    src: "Standard free-water deficit equation",
+    lim: "An estimate, not a fluid prescription. Total-body-water fractions are approximate; correction rate, ongoing losses, comorbidities and local protocols require clinical assessment.",
+    in: [
+      { id: "w", l: "Body weight", d: "mass", min: 2, max: 300 },
+      { id: "fraction", l: "Estimated total-body-water fraction", o: ["Adult male (0.6)", "Adult female (0.5)", "Older adult (0.45)"] },
+      { id: "na", l: "Measured serum sodium", d: "mmol", min: 100, max: 200 },
+      { id: "target", l: "Reference sodium", d: "mmol", min: 135, max: 145 },
+    ],
+    out: "vol",
+    dg: 0,
+    math: { label: "Free water deficit", rhs: "Weight × TBW fraction × (measured Na⁺ / reference Na⁺ − 1)" },
+    departments: ["Medicine", "Nephrology", "Emergency Medicine", "Intensive Care"],
+    f: (v) => {
+      const fraction = [0.6, 0.5, 0.45][v.fraction];
+      const liters = v.w * fraction * (v.na / v.target - 1);
+      const value = Math.max(0, liters * 1000);
+      return {
+        val: value,
+        steps: [
+          `Estimated total body water = ${r(v.w, 1)} × ${fraction} = ${r(v.w * fraction, 2)} L`,
+          `Deficit = max(0, ${r(v.w * fraction, 2)} × (${r(v.na, 1)} ÷ ${r(v.target, 1)} − 1)) = ${r(value, 0)} mL`,
+        ],
+        note: "The result is an estimate and does not specify fluid type, route, or correction rate.",
+      };
+    },
+  },
+  {
+    id: "albumin-corrected-ag",
+    n: "Albumin-corrected anion gap",
+    al: "albumin corrected anion gap metabolic acidosis",
+    s: "Renal",
+    d: "Adjusts the measured anion gap for low serum albumin, a major unmeasured anion.",
+    src: "Figge J et al. Crit Care Med 1998",
+    lim: "The correction is an estimate; laboratory reference ranges and clinical context matter. This does not replace blood-gas interpretation.",
+    in: [
+      { id: "ag", l: "Measured anion gap (without potassium)", d: "mmol", min: 0, max: 60 },
+      { id: "albumin", l: "Serum albumin", d: "alb", min: 0.1, max: 8 },
+    ],
+    out: "mmol",
+    dg: 1,
+    math: { label: "Corrected anion gap", rhs: "Measured anion gap + 2.5 × (4.0 − albumin in g/dL)" },
+    departments: ["Medicine", "Nephrology", "Emergency Medicine", "Intensive Care"],
+    f: (v) => {
+      const correction = 2.5 * (4 - v.albumin);
+      const value = v.ag + correction;
+      return {
+        val: value,
+        steps: [
+          `Albumin correction = 2.5 × (4.0 − ${r(v.albumin, 1)}) = ${r(correction, 1)} mmol/L`,
+          `Corrected anion gap = ${r(v.ag, 1)} + ${r(correction, 1)} = ${r(value, 1)} mmol/L`,
+        ],
+        note: "Interpret against the laboratory's reference range and the full clinical picture.",
+      };
+    },
+  },
+  {
+    id: "delta-ratio",
+    n: "Delta ratio",
+    al: "delta ratio delta gap anion gap metabolic acidosis",
+    s: "Renal",
+    d: "Compares the rise in anion gap with the fall in bicarbonate when assessing high-anion-gap metabolic acidosis.",
+    src: "Standard delta-ratio calculation",
+    lim: "Use in the context of a confirmed metabolic acidosis and local reference ranges. This heuristic does not diagnose a mixed disorder.",
+    in: [
+      { id: "ag", l: "Anion gap (without potassium)", d: "mmol", min: 12.1, max: 60 },
+      { id: "hco3", l: "Serum bicarbonate", d: "mmol", min: 0, max: 46 },
+    ],
+    out: "ratioIndex",
+    dg: 2,
+    math: { label: "Delta ratio", numerator: "Anion gap − 12", denominator: "24 − bicarbonate" },
+    departments: ["Medicine", "Nephrology", "Emergency Medicine", "Intensive Care"],
+    f: (v) => {
+      const denominator = 24 - v.hco3;
+      if (v.ag <= 12 || denominator <= 0)
+        return { err: "Use an elevated anion gap and bicarbonate below 24 mmol/L." };
+      const value = (v.ag - 12) / denominator;
+      return {
+        val: value,
+        steps: [
+          `Change in anion gap = ${r(v.ag, 1)} − 12 = ${r(v.ag - 12, 1)}`,
+          `Change in bicarbonate = 24 − ${r(v.hco3, 1)} = ${r(denominator, 1)}`,
+          `Delta ratio = ${r(v.ag - 12, 1)} ÷ ${r(denominator, 1)} = ${r(value, 2)}`,
+        ],
+        note: "Interpret cautiously; baseline values and albumin correction can affect the ratio.",
+      };
+    },
+  },
+  {
+    id: "ibw",
+    n: "Ideal body weight (Devine)",
+    al: "ideal body weight ibw height Devine",
+    s: "General",
+    d: "Estimates ideal body weight from height and the sex-specific Devine equation.",
+    src: "Devine BJ. Drug Intell Clin Pharm 1974",
+    lim: "A population-derived estimate, not an individual's healthy or target weight. Do not use alone to select a medication dose.",
+    in: [
+      { id: "h", l: "Height", d: "len", min: 120, max: 250 },
+      { id: "sex", l: "Equation", o: ["Male", "Female"] },
+    ],
+    out: "mass",
+    dg: 1,
+    math: { label: "IBW", rhs: "50 kg (male) or 45.5 kg (female) + 2.3 kg per inch over 5 feet" },
+    departments: ["Medicine", "Anaesthesia", "Respiratory Medicine", "Nutrition"],
+    f: (v) => {
+      const inchesOverFiveFeet = v.h / 2.54 - 60;
+      const base = v.sex === 0 ? 50 : 45.5;
+      const value = base + 2.3 * inchesOverFiveFeet;
+      return {
+        val: value,
+        steps: [
+          `Height above 5 feet = ${r(v.h, 1)} ÷ 2.54 − 60 = ${r(inchesOverFiveFeet, 2)} inches`,
+          `IBW = ${base} + 2.3 × ${r(inchesOverFiveFeet, 2)} = ${r(value, 1)} kg`,
+        ],
+      };
+    },
+  },
+  {
+    id: "adjusted-weight",
+    n: "Adjusted body weight",
+    al: "adjusted body weight dosing obesity correction",
+    s: "General",
+    d: "Calculates adjusted body weight from actual body weight and an entered ideal body weight.",
+    src: "Common adjusted-body-weight estimate (0.4 correction factor)",
+    lim: "The correction factor is not universal and is not appropriate for every medicine or patient. Use a drug-specific reference and local prescribing protocol.",
+    in: [
+      { id: "actual", l: "Actual body weight", d: "mass", min: 2, max: 500 },
+      { id: "ideal", l: "Ideal body weight", d: "mass", min: 2, max: 300 },
+    ],
+    out: "mass",
+    dg: 1,
+    math: { label: "Adjusted body weight", rhs: "Ideal body weight + 0.4 × (actual body weight − ideal body weight)" },
+    departments: ["Medicine", "Anaesthesia", "Pharmacy", "Nutrition"],
+    f: (v) => {
+      const difference = v.actual - v.ideal;
+      const value = v.ideal + 0.4 * difference;
+      return {
+        val: value,
+        steps: [
+          `Weight difference = ${r(v.actual, 1)} − ${r(v.ideal, 1)} = ${r(difference, 1)} kg`,
+          `Adjusted weight = ${r(v.ideal, 1)} + 0.4 × ${r(difference, 1)} = ${r(value, 1)} kg`,
+        ],
+        note: "Confirm the appropriate weight scalar for the specific clinical use.",
+      };
+    },
+  },
+  {
+    id: "qsofa",
+    n: "Quick SOFA (qSOFA)",
+    al: "qsofa quick sofa sepsis respiratory rate blood pressure consciousness",
+    s: "General",
+    d: "Counts three bedside qSOFA criteria in adults with suspected infection.",
+    src: "Singer M et al. JAMA 2016",
+    lim: "qSOFA is not a sepsis screening or diagnostic test by itself. A low score does not rule out sepsis; follow current local assessment and escalation pathways.",
+    in: [
+      { id: "rr", l: "Respiratory rate ≥22/min", o: ["No", "Yes"] },
+      { id: "sbp", l: "Systolic blood pressure ≤100 mmHg", o: ["No", "Yes"] },
+      { id: "mentation", l: "Altered mentation", o: ["No", "Yes"] },
+    ],
+    out: "pts",
+    math: { label: "qSOFA", rhs: "One point each: respiratory rate ≥22, systolic BP ≤100, altered mentation" },
+    departments: ["Emergency Medicine", "Medicine", "Intensive Care"],
+    f: (v) => {
+      const score = v.rr + v.sbp + v.mentation;
+      return {
+        val: score,
+        steps: [
+          `Respiratory rate criterion = ${v.rr}`,
+          `Systolic pressure criterion = ${v.sbp}`,
+          `Altered mentation criterion = ${v.mentation}`,
+          `qSOFA total = ${score} / 3`,
+        ],
+        note: "A score of 2 or more identifies increased risk in the intended context; it is not a diagnosis.",
+      };
+    },
+  },
+  {
+    id: "curb65",
+    n: "CURB-65 score",
+    al: "curb65 curb-65 pneumonia severity community acquired",
+    s: "Respiratory",
+    d: "Counts five clinical criteria used to assess severity in adults with community-acquired pneumonia.",
+    src: "Lim WS et al. Thorax 2003; British Thoracic Society guideline",
+    lim: "Use only after clinical assessment of suspected community-acquired pneumonia. The score does not replace clinical judgment or local admission and treatment guidance.",
+    in: [
+      { id: "confusion", l: "New confusion", o: ["No", "Yes"] },
+      { id: "urea", l: "Blood urea >7 mmol/L", o: ["No", "Yes"] },
+      { id: "rr", l: "Respiratory rate ≥30/min", o: ["No", "Yes"] },
+      { id: "bp", l: "Systolic BP <90 or diastolic BP ≤60 mmHg", o: ["No", "Yes"] },
+      { id: "age", l: "Age ≥65 years", o: ["No", "Yes"] },
+    ],
+    out: "pts",
+    math: { label: "CURB-65", rhs: "One point each: confusion, urea >7, RR ≥30, low blood pressure, age ≥65" },
+    departments: ["Respiratory Medicine", "Emergency Medicine", "Medicine"],
+    f: (v) => {
+      const score = v.confusion + v.urea + v.rr + v.bp + v.age;
+      return {
+        val: score,
+        steps: [
+          `Confusion = ${v.confusion}; urea criterion = ${v.urea}`,
+          `Respiratory rate = ${v.rr}; blood pressure = ${v.bp}; age = ${v.age}`,
+          `CURB-65 total = ${score} / 5`,
+        ],
+        note: "Interpret using the full clinical presentation and the relevant local guideline.",
+      };
+    },
+  },
+  {
+    id: "child-pugh",
+    n: "Child-Pugh score",
+    al: "child pugh score cirrhosis liver bilirubin albumin INR ascites encephalopathy",
+    s: "Gastrointestinal",
+    d: "Combines five clinical and laboratory measures to classify chronic liver disease severity.",
+    src: "Pugh RN et al. Br J Surg 1973; Child CG, Turcotte JG 1964",
+    lim: "Clinical features and laboratory thresholds require judgment; this score does not establish a diagnosis or determine treatment by itself.",
+    in: [
+      { id: "bilirubin", l: "Total bilirubin", d: "bilirubin", min: 0.1, max: 60 },
+      { id: "albumin", l: "Albumin", d: "alb", min: 0.1, max: 8 },
+      { id: "inr", l: "INR", d: "inr", min: 0.5, max: 10 },
+      { id: "ascites", l: "Ascites", o: ["None", "Mild / controlled", "Moderate to severe"] },
+      { id: "encephalopathy", l: "Encephalopathy", o: ["None", "Grade I–II", "Grade III–IV"] },
+    ],
+    out: "pts",
+    math: { label: "Child-Pugh", rhs: "Bilirubin + albumin + INR + ascites + encephalopathy points" },
+    departments: ["Gastroenterology", "Medicine", "Surgery"],
+    f: (v) => {
+      const bilirubin = v.bilirubin < 2 ? 1 : v.bilirubin <= 3 ? 2 : 3;
+      const albumin = v.albumin > 3.5 ? 1 : v.albumin >= 2.8 ? 2 : 3;
+      const inr = v.inr < 1.7 ? 1 : v.inr <= 2.3 ? 2 : 3;
+      const score = bilirubin + albumin + inr + v.ascites + 1 + v.encephalopathy + 1;
+      return {
+        val: score,
+        steps: [
+          `Bilirubin points = ${bilirubin}; albumin points = ${albumin}; INR points = ${inr}`,
+          `Ascites points = ${v.ascites + 1}; encephalopathy points = ${v.encephalopathy + 1}`,
+          `Child-Pugh total = ${score} / 15`,
+        ],
+        note: score <= 6 ? "Class A (5–6 points)." : score <= 9 ? "Class B (7–9 points)." : "Class C (10–15 points).",
+      };
+    },
+  },
+  {
+    id: "apgar",
+    n: "Apgar score",
+    al: "apgar newborn neonatal appearance pulse grimace activity respiration",
+    s: "Reproductive",
+    d: "Adds the five standard newborn assessment components to record an Apgar score.",
+    src: "American Academy of Pediatrics and American College of Obstetricians and Gynecologists. The Apgar Score",
+    lim: "The score describes the newborn's condition and response to resuscitation; it does not predict an individual outcome or determine whether resuscitation should begin.",
+    in: [
+      { id: "appearance", l: "Appearance (colour)", o: ["0 — Blue or pale", "1 — Body pink, extremities blue", "2 — Completely pink"] },
+      { id: "pulse", l: "Pulse", o: ["0 — Absent", "1 — Below 100/min", "2 — 100/min or more"] },
+      { id: "grimace", l: "Grimace (reflex response)", o: ["0 — No response", "1 — Grimace", "2 — Cry, cough or sneeze"] },
+      { id: "activity", l: "Activity (muscle tone)", o: ["0 — Limp", "1 — Some flexion", "2 — Active motion"] },
+      { id: "respiration", l: "Respiration", o: ["0 — Absent", "1 — Slow or irregular", "2 — Good effort / crying"] },
+    ],
+    out: "pts",
+    math: { label: "Apgar", rhs: "Appearance + Pulse + Grimace + Activity + Respiration (each 0–2)" },
+    departments: ["Paediatrics", "Neonatology", "Obstetrics & Gynaecology"],
+    f: (v) => {
+      const score = v.appearance + v.pulse + v.grimace + v.activity + v.respiration;
+      return {
+        val: score,
+        steps: [
+          `Appearance = ${v.appearance}; pulse = ${v.pulse}; grimace = ${v.grimace}`,
+          `Activity = ${v.activity}; respiration = ${v.respiration}`,
+          `Apgar total = ${score} / 10`,
+        ],
+        note: "Record the assessment time; do not use the score alone to decide resuscitation.",
+      };
+    },
+  },
+  {
+    id: "bishop",
+    n: "Bishop score",
+    al: "bishop score cervix cervical ripening induction labour obstetrics",
+    s: "Reproductive",
+    d: "Adds cervical dilation, effacement, station, consistency and position scores.",
+    src: "Bishop EH. Obstet Gynecol 1964",
+    lim: "The score supports assessment of cervical favourability but does not determine whether or how to induce labour. Follow obstetric guidance and consider the full clinical context.",
+    in: [
+      { id: "dilation", l: "Cervical dilation", o: ["Closed (0)", "1–2 cm (1)", "3–4 cm (2)", "≥5 cm (3)"] },
+      { id: "effacement", l: "Cervical effacement", o: ["0–30% (0)", "40–50% (1)", "60–70% (2)", "≥80% (3)"] },
+      { id: "station", l: "Fetal station", o: ["−3 (0)", "−2 (1)", "−1 or 0 (2)", "+1 or +2 (3)"] },
+      { id: "consistency", l: "Cervical consistency", o: ["Firm (0)", "Medium (1)", "Soft (2)"] },
+      { id: "position", l: "Cervical position", o: ["Posterior (0)", "Mid-position (1)", "Anterior (2)"] },
+    ],
+    out: "pts",
+    math: { label: "Bishop score", rhs: "Dilation + effacement + station + consistency + position points" },
+    departments: ["Obstetrics & Gynaecology", "Paediatrics"],
+    f: (v) => {
+      const score = v.dilation + v.effacement + v.station + v.consistency + v.position;
+      return {
+        val: score,
+        steps: [
+          `Dilation = ${v.dilation}; effacement = ${v.effacement}; station = ${v.station}`,
+          `Consistency = ${v.consistency}; position = ${v.position}`,
+          `Bishop total = ${score} / 13`,
+        ],
+        note: "Interpret according to local obstetric guidance; the score is not a standalone decision rule.",
+      };
+    },
+  },
+  {
+    id: "corrected-retic",
+    n: "Corrected reticulocyte count",
+    al: "corrected reticulocyte count anaemia hematocrit reticulocytes",
+    s: "Haematology",
+    d: "Corrects the reticulocyte percentage for the patient's haematocrit relative to a selected reference.",
+    src: "Standard haematology calculation",
+    lim: "A screening calculation only; interpretation depends on the blood count, reticulocyte method and clinical context.",
+    in: [
+      { id: "retic", l: "Reticulocytes", d: "pct", min: 0, max: 100 },
+      { id: "hct", l: "Patient haematocrit", d: "pct", min: 1, max: 80 },
+      { id: "sex", l: "Reference haematocrit", o: ["Male (45%)", "Female (42%)"] },
+    ],
+    out: "pct",
+    dg: 2,
+    math: { label: "Corrected reticulocyte count", numerator: "Reticulocyte % × patient haematocrit", denominator: "Reference haematocrit" },
+    departments: ["Haematology", "Medicine"],
+    f: (v) => {
+      const reference = v.sex === 0 ? 45 : 42;
+      const value = v.retic * v.hct / reference;
+      return {
+        val: value,
+        steps: [
+          `Corrected reticulocytes = ${r(v.retic, 2)}% × ${r(v.hct, 1)} ÷ ${reference}`,
+          `Corrected reticulocyte count = ${r(value, 2)}%`,
+        ],
+      };
+    },
+  },
+  {
+    id: "retic-production-index",
+    n: "Reticulocyte production index (RPI)",
+    al: "reticulocyte production index RPI anaemia maturation correction",
+    s: "Haematology",
+    d: "Adjusts the corrected reticulocyte count for delayed reticulocyte maturation in anaemia.",
+    src: "Standard haematology calculation",
+    lim: "The maturation correction is an approximation. Use laboratory guidance and interpret alongside the blood film and clinical context.",
+    in: [
+      { id: "retic", l: "Reticulocytes", d: "pct", min: 0, max: 100 },
+      { id: "hct", l: "Patient haematocrit", d: "pct", min: 1, max: 80 },
+      { id: "sex", l: "Reference haematocrit", o: ["Male (45%)", "Female (42%)"] },
+      { id: "maturation", l: "Maturation correction", o: ["1.0", "1.5", "2.0", "2.5"] },
+    ],
+    out: "ratioIndex",
+    dg: 2,
+    math: { label: "RPI", rhs: "(Reticulocyte % × patient Hct / reference Hct) ÷ maturation correction" },
+    departments: ["Haematology", "Medicine"],
+    f: (v) => {
+      const reference = v.sex === 0 ? 45 : 42;
+      const factor = [1, 1.5, 2, 2.5][v.maturation];
+      const corrected = v.retic * v.hct / reference;
+      const value = corrected / factor;
+      return {
+        val: value,
+        steps: [
+          `Corrected reticulocyte count = ${r(v.retic, 2)} × ${r(v.hct, 1)} ÷ ${reference} = ${r(corrected, 2)}%`,
+          `RPI = ${r(corrected, 2)} ÷ ${factor} = ${r(value, 2)}`,
+        ],
+        note: "The selected maturation factor is approximate and should match the applicable laboratory convention.",
+      };
+    },
+  },
+  {
+    id: "schwartz-egfr",
+    n: "eGFR (bedside Schwartz)",
+    al: "schwartz egfr paediatric pediatric kidney function creatinine height",
+    s: "Renal",
+    d: "Estimates paediatric eGFR from height and serum creatinine using the bedside Schwartz equation.",
+    src: "Schwartz GJ et al. J Am Soc Nephrol 2009",
+    lim: "For children and adolescents when the equation is appropriate; not validated for adults or rapidly changing kidney function. Assay and local reporting methods matter.",
+    in: [
+      { id: "h", l: "Height", d: "len", min: 30, max: 220 },
+      { id: "cr", l: "Serum creatinine", d: "cr", min: 0.1, max: 20 },
+    ],
+    out: "egfr",
+    dg: 0,
+    math: { label: "eGFR", rhs: "0.413 × height (cm) ÷ serum creatinine (mg/dL)" },
+    departments: ["Paediatrics", "Nephrology", "Medicine"],
+    f: (v) => {
+      const value = 0.413 * v.h / v.cr;
+      return {
+        val: value,
+        steps: [
+          `0.413 × height = 0.413 × ${r(v.h, 1)} = ${r(0.413 * v.h, 2)}`,
+          `eGFR = ${r(0.413 * v.h, 2)} ÷ ${r(v.cr, 2)} = ${r(value, 0)} mL/min/1.73 m²`,
+        ],
+      };
+    },
+  },
+  {
+    id: "feurea",
+    n: "Fractional excretion of urea (FEUrea)",
+    al: "feurea fractional excretion urea urine serum kidney acute injury",
+    s: "Renal",
+    d: "Estimates the percentage of filtered urea excreted using paired urine and serum urea and creatinine.",
+    src: "Carvounis CP et al. Kidney Int 2002",
+    lim: "Diuretics and other clinical factors can affect interpretation. FEUrea should not be used alone to diagnose the cause of acute kidney injury.",
+    in: [
+      { id: "uu", l: "Urine urea", d: "urea", min: 0.1, max: 1000 },
+      { id: "su", l: "Serum urea", d: "urea", min: 0.1, max: 100 },
+      { id: "uc", l: "Urine creatinine", d: "cr", min: 0.1, max: 1000 },
+      { id: "sc", l: "Serum creatinine", d: "cr", min: 0.1, max: 20 },
+    ],
+    out: "pct",
+    dg: 2,
+    math: { label: "FEUrea (%)", numerator: "Urine urea × Serum creatinine", denominator: "Serum urea × Urine creatinine", rhs: "× 100" },
+    departments: ["Nephrology", "Emergency Medicine", "Medicine"],
+    f: (v) => {
+      const value = v.uu * v.sc / (v.su * v.uc) * 100;
+      return {
+        val: value,
+        steps: [
+          `FEUrea = (urine urea × serum creatinine) ÷ (serum urea × urine creatinine) × 100`,
+          `= (${r(v.uu, 1)} × ${r(v.sc, 2)}) ÷ (${r(v.su, 1)} × ${r(v.uc, 2)}) × 100 = ${r(value, 2)}%`,
+        ],
+      };
+    },
+  },
+  {
+    id: "homa-ir",
+    n: "HOMA-IR",
+    al: "HOMA-IR insulin resistance fasting glucose insulin",
+    s: "Endocrine",
+    d: "Calculates the homeostatic model assessment of insulin resistance from fasting glucose and insulin.",
+    src: "Matthews DR et al. Diabetologia 1985",
+    lim: "Requires fasting values and is sensitive to assay and population. It is not a standalone diagnostic test; thresholds vary and should follow local practice.",
+    in: [
+      { id: "glucose", l: "Fasting glucose", d: "glucose", min: 1, max: 40 },
+      { id: "insulin", l: "Fasting insulin", d: "insulin", min: 0.1, max: 500 },
+    ],
+    out: "ratioIndex",
+    dg: 2,
+    math: { label: "HOMA-IR", numerator: "Fasting glucose (mmol/L) × fasting insulin (µU/mL)", denominator: "22.5" },
+    departments: ["Endocrinology", "Medicine", "Primary Care"],
+    f: (v) => {
+      const value = v.glucose * v.insulin / 22.5;
+      return {
+        val: value,
+        steps: [
+          `HOMA-IR = ${r(v.glucose, 2)} × ${r(v.insulin, 1)} ÷ 22.5`,
+          `HOMA-IR = ${r(value, 2)}`,
+        ],
+        note: "Use fasting samples and interpret with assay- and population-specific guidance.",
+      };
+    },
+  },
+  {
+    id: "urine-acr",
+    n: "Urine albumin-to-creatinine ratio (ACR)",
+    al: "urine albumin creatinine ratio ACR kidney disease proteinuria",
+    s: "Renal",
+    d: "Calculates urine albumin-to-creatinine ratio from a spot urine albumin and creatinine concentration.",
+    src: "KDIGO Clinical Practice Guideline for the Evaluation and Management of CKD",
+    lim: "Use the same urine sample and the units reported by the laboratory. ACR varies biologically; confirm abnormal results and interpret using current local guidance.",
+    in: [
+      { id: "albumin", l: "Urine albumin", d: "urineAlbumin", min: 0, max: 10000 },
+      { id: "creatinine", l: "Urine creatinine", d: "urineCreatinine", min: 0.01, max: 100 },
+    ],
+    out: "acr",
+    dg: 1,
+    math: { label: "Urine ACR", numerator: "Urine albumin (mg/L)", denominator: "Urine creatinine (mmol/L)" },
+    departments: ["Nephrology", "Medicine", "Primary Care", "Endocrinology"],
+    f: (v) => {
+      const value = v.albumin / v.creatinine;
+      return {
+        val: value,
+        steps: [
+          `Urine ACR = ${r(v.albumin, 1)} mg/L ÷ ${r(v.creatinine, 2)} mmol/L`,
+          `Urine ACR = ${r(value, 1)} mg/mmol`,
+        ],
+        note: value < 3
+          ? "Below 3 mg/mmol; interpret with the full clinical picture."
+          : value <= 30
+            ? "3–30 mg/mmol range; confirmation and clinical context are important."
+            : "Above 30 mg/mmol; confirmation and clinical context are important.",
+      };
+    },
+  },
+  {
+    id: "risk-reduction",
+    n: "Absolute risk difference and NNT/NNH",
+    al: "absolute risk reduction relative risk reduction number needed to treat harm NNT NNH",
+    s: "General",
+    d: "Compares event risks in treatment and control groups to calculate absolute risk difference and number needed to treat or harm.",
+    src: "Standard clinical epidemiology calculations",
+    lim: "Use comparable populations, time periods and outcomes. NNT/NNH depends on baseline risk and follow-up duration; this calculation does not establish causality.",
+    in: [
+      { id: "control", l: "Control group event risk", d: "pct", min: 0, max: 100 },
+      { id: "treatment", l: "Treatment group event risk", d: "pct", min: 0, max: 99 },
+    ],
+    out: "count",
+    dg: 0,
+    math: { label: "Absolute risk difference", rhs: "Control risk − treatment risk; NNT/NNH = 1 ÷ absolute risk difference" },
+    departments: ["Medicine", "Primary Care", "Public Health"],
+    f: (v) => {
+      const difference = v.control - v.treatment;
+      if (difference === 0) return { err: "There is no risk difference, so NNT/NNH is not finite." };
+      const value = Math.ceil(100 / Math.abs(difference));
+      const relative = v.control > 0 ? difference / v.control * 100 : 0;
+      return {
+        val: value,
+        steps: [
+          `Absolute risk difference = ${r(v.control, 1)}% − ${r(v.treatment, 1)}% = ${r(difference, 1)} percentage points`,
+          `Relative risk reduction = ${r(relative, 1)}%`,
+          `Number needed = round up(100 ÷ ${r(Math.abs(difference), 1)}) = ${value}`,
+        ],
+        note: difference > 0 ? `NNT = ${value} over the stated follow-up period.` : `NNH = ${value} over the stated follow-up period.`,
+      };
+    },
+  },
+  {
+    id: "estimated-average-glucose",
+    n: "Estimated average glucose (eAG)",
+    al: "estimated average glucose eAG HbA1c diabetes glycated haemoglobin",
+    s: "Endocrine",
+    d: "Converts HbA1c to an estimated average glucose using the ADAG study relationship.",
+    src: "Nathan DM et al. Diabetes Care 2008;31:1473–1478",
+    lim: "This population-level estimate is not a substitute for measured glucose or continuous glucose monitoring and may be less reliable in some conditions affecting red-cell turnover.",
+    in: [{ id: "a1c", l: "HbA1c", d: "pct", min: 3, max: 20 }],
+    out: "glucose",
+    dg: 1,
+    math: { label: "Estimated average glucose", rhs: "28.7 × HbA1c (%) − 46.7 (mg/dL)" },
+    departments: ["Endocrinology", "Medicine", "Primary Care"],
+    f: (v) => {
+      const mgdl = 28.7 * v.a1c - 46.7;
+      const mmol = mgdl / 18;
+      return {
+        val: mmol,
+        steps: [
+          `eAG = 28.7 × ${r(v.a1c, 1)} − 46.7 = ${r(mgdl, 1)} mg/dL`,
+          `Convert to mmol/L = ${r(mgdl, 1)} ÷ 18 = ${r(mmol, 1)} mmol/L`,
+        ],
+        note: "An estimate of average glucose; it is not an individual glucose measurement.",
+      };
+    },
+  },
 ];
 
 export const GC: Record<string, string> = {
@@ -1234,6 +1871,27 @@ const departmentsByFormula: Record<string, string[]> = {
   news2: ["Medicine", "Emergency Medicine", "Surgery", "Intensive Care"],
   winters: ["Medicine", "Emergency Medicine", "Intensive Care", "Nephrology"],
   "corrected-na": ["Endocrinology", "Medicine", "Emergency Medicine", "Intensive Care"],
+  "potassium-deficit": ["Nephrology", "Emergency Medicine", "Medicine", "Intensive Care"],
+  "serum-osmolality": ["Medicine", "Nephrology", "Emergency Medicine", "Intensive Care"],
+  "osmolar-gap": ["Emergency Medicine", "Intensive Care", "Nephrology", "Medicine"],
+  "free-water-deficit": ["Medicine", "Nephrology", "Emergency Medicine", "Intensive Care"],
+  "albumin-corrected-ag": ["Medicine", "Nephrology", "Emergency Medicine", "Intensive Care"],
+  "delta-ratio": ["Medicine", "Nephrology", "Emergency Medicine", "Intensive Care"],
+  ibw: ["Medicine", "Anaesthesia", "Respiratory Medicine", "Nutrition"],
+  "adjusted-weight": ["Medicine", "Anaesthesia", "Pharmacy", "Nutrition"],
+  qsofa: ["Emergency Medicine", "Medicine", "Intensive Care"],
+  curb65: ["Respiratory Medicine", "Emergency Medicine", "Medicine"],
+  "child-pugh": ["Gastroenterology", "Medicine", "Surgery"],
+  apgar: ["Paediatrics", "Neonatology", "Obstetrics & Gynaecology"],
+  bishop: ["Obstetrics & Gynaecology", "Paediatrics"],
+  "corrected-retic": ["Haematology", "Medicine"],
+  "retic-production-index": ["Haematology", "Medicine"],
+  "schwartz-egfr": ["Paediatrics", "Nephrology", "Medicine"],
+  feurea: ["Nephrology", "Emergency Medicine", "Medicine"],
+  "homa-ir": ["Endocrinology", "Medicine", "Primary Care"],
+  "urine-acr": ["Nephrology", "Medicine", "Primary Care", "Endocrinology"],
+  "risk-reduction": ["Medicine", "Primary Care", "Public Health"],
+  "estimated-average-glucose": ["Endocrinology", "Medicine", "Primary Care"],
   pp: ["Cardiology", "Emergency Medicine", "Intensive Care"],
   si: ["Cardiology", "Emergency Medicine", "Intensive Care"],
   sv: ["Cardiology", "Anaesthesia", "Intensive Care"],

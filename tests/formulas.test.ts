@@ -151,6 +151,35 @@ describe("formula maths", () => {
       141.6,
       5,
     ));
+  it("estimated potassium deficit uses weight, potassium gap and 0.4 L/kg", () =>
+    expect(
+      run("potassium-deficit", { w: 70, k: 3, target: 4 }).val,
+    ).toBe(28));
+  it("calculated serum osmolality includes sodium, glucose and urea", () =>
+    expect(
+      run("serum-osmolality", { na: 140, glucose: 5, urea: 5 }).val,
+    ).toBe(290));
+  it("free water deficit converts the estimate to millilitres", () =>
+    expect(
+      run("free-water-deficit", {
+        w: 70,
+        fraction: 0,
+        na: 154,
+        target: 140,
+      }).val,
+    ).toBeCloseTo(4200, 5));
+  it("qSOFA sums the three criteria", () =>
+    expect(run("qsofa", { rr: 1, sbp: 0, mentation: 1 }).val).toBe(2));
+  it("risk difference reports number needed to harm when treatment risk is higher", () => {
+    const result = run("risk-reduction", { control: 10, treatment: 15 });
+    expect(result.val).toBe(20);
+    expect(result.note).toContain("NNH = 20");
+  });
+  it("eAG converts the ADAG estimate into mmol/L", () =>
+    expect(run("estimated-average-glucose", { a1c: 7 }).val).toBeCloseTo(
+      154.2 / 18,
+      5,
+    ));
 });
 
 describe("unit conversions (base = value x factor)", () => {
@@ -168,6 +197,35 @@ describe("unit conversions (base = value x factor)", () => {
 });
 
 describe("registry integrity (catches mistakes when you add formulas)", () => {
+  it("contains the 55 established and 21 new formulas", () =>
+    expect(F).toHaveLength(76));
+  it("includes the intended formula additions", () => {
+    expect(F.map((f) => f.id)).toEqual(
+      expect.arrayContaining([
+        "potassium-deficit",
+        "serum-osmolality",
+        "osmolar-gap",
+        "free-water-deficit",
+        "albumin-corrected-ag",
+        "delta-ratio",
+        "ibw",
+        "adjusted-weight",
+        "qsofa",
+        "curb65",
+        "child-pugh",
+        "apgar",
+        "bishop",
+        "corrected-retic",
+        "retic-production-index",
+        "schwartz-egfr",
+        "feurea",
+        "homa-ir",
+        "urine-acr",
+        "risk-reduction",
+        "estimated-average-glucose",
+      ]),
+    );
+  });
   it("ids are unique", () =>
     expect(new Set(F.map((f) => f.id)).size).toBe(F.length));
   it("every dimension and output unit exists", () => {
