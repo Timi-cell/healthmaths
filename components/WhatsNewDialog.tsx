@@ -77,13 +77,13 @@ export default function WhatsNewDialog({
           </p>
         </div>
       )}
-      <section className="update-prompt" aria-label="Keep HealthMaths updated">
+      {/* <section className="update-prompt" aria-label="Keep HealthMaths updated">
         <b>Keep HealthMaths up to date</b>
         <p>
           Connect to the internet and reopen the app to get the latest
           HealthMaths updates.
         </p>
-      </section>
+      </section> */}
       <div className="whats-new-actions">
         <button
           className="btn"

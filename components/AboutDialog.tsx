@@ -35,7 +35,7 @@ export default function AboutDialog({ open, onClose }: Props) {
       <p className="about-lead">
         For doctors, nurses, physiotherapists and other care teams, HealthMaths
         makes commonly used healthcare formulas easier to find, understand and
-        work through. All accessible OFFLINE.
+        work through. <br/> All accessible OFFLINE.
       </p>
       {/* <div className="about-grid">
         <section>

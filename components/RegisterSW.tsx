@@ -9,7 +9,7 @@ export default function RegisterSW() {
   // Small messages from anywhere in the app: window.dispatchEvent(new CustomEvent('healthmaths:toast', { detail: '...' }))
   useEffect(() => {
     const showUpdatedToast = () => {
-      setToast("App Updated");
+      setToast("App Updated!");
       if (toastTimeout.current !== null)
         window.clearTimeout(toastTimeout.current);
       toastTimeout.current = window.setTimeout(() => {
@@ -134,7 +134,7 @@ export default function RegisterSW() {
     waiting?.postMessage({ type: "SKIP_WAITING" });
   };
 
-  if (waiting && toast !== "App Updated")
+  if (waiting && toast !== "App Updated!")
     return (
       <div className="toast" role="status">
         <span>We've added some updates!</span>
