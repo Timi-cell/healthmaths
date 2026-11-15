@@ -1757,6 +1757,334 @@ export const F: Formula[] = [
       };
     },
   },
+  {
+    id: "dose-weight",
+    n: "Weight-based dose",
+    al: "drug medication dose mg kg weight daily per dose divided doses",
+    s: "Pharmacology",
+    d: "Calculates a prescribed weight-based amount per dose, or divides a prescribed total daily amount across the selected number of doses.",
+    src: "Standard dimensional-analysis dosing equations",
+    lim: "Use only a dose and schedule prescribed for the specific medicine and patient. This arithmetic does not check indication, age, organ function, interactions, or a medicine-specific maximum.",
+    in: [
+      { id: "weight", l: "Patient weight", d: "mass", min: 0.1, max: 500 },
+      {
+        id: "prescribed",
+        l: "Prescribed dose per kg",
+        d: "doseMass",
+        min: 0.001,
+        max: 100000,
+      },
+      {
+        id: "basis",
+        l: "Dose basis",
+        o: ["Per dose (mg/kg/dose)", "Per day (mg/kg/day)"],
+      },
+      {
+        id: "frequency",
+        l: "Doses per day",
+        d: "doseFrequency",
+        min: 1,
+        max: 24,
+      },
+    ],
+    out: "doseMass",
+    dg: 2,
+    math: {
+      label: "Weight-based dose",
+      rhs: "Weight (kg) × prescribed dose (mg/kg); divide by doses/day for a daily dose",
+    },
+    departments: ["Pharmacy", "Medicine", "Paediatrics"],
+    more: "For a per-day prescription, the result is divided evenly by the entered number of daily doses. Confirm whether the prescription is written per dose or per day before using the result.",
+    f: (v) => {
+      const dailyDose = v.weight * v.prescribed;
+      const dose = v.basis === 0 ? dailyDose : dailyDose / v.frequency;
+      return {
+        val: dose,
+        steps: [
+          `Weight-based amount = ${r(v.weight, 2)} kg × ${r(v.prescribed, 3)} mg/kg = ${r(dailyDose, 2)} mg`,
+          v.basis === 0
+            ? `Amount per dose = ${r(dose, 2)} mg`
+            : `Amount per dose = ${r(dailyDose, 2)} mg/day ÷ ${r(v.frequency, 0)} doses/day = ${r(dose, 2)} mg`,
+          `Daily total = ${r(dose, 2)} mg/dose × ${r(v.frequency, 0)} doses/day = ${r(dose * v.frequency, 2)} mg/day`,
+        ],
+        note: "Arithmetic only. Verify the prescribed dose basis and frequency.",
+      };
+    },
+  },
+  {
+    id: "dose-bsa",
+    n: "Body-surface-area dose",
+    al: "drug medication dose BSA body surface area mg square metre Mosteller",
+    s: "Pharmacology",
+    d: "Calculates a prescribed dose per square metre using body surface area estimated by the Mosteller equation.",
+    src: "Mosteller RD. N Engl J Med 1987;317:1098",
+    lim: "Use only a medicine-specific prescription. This calculation does not confirm that BSA dosing is appropriate or apply regimen-specific dose modifications or caps.",
+    in: [
+      { id: "weight", l: "Patient weight", d: "mass", min: 0.1, max: 500 },
+      { id: "height", l: "Patient height", d: "len", min: 30, max: 250 },
+      {
+        id: "prescribed",
+        l: "Prescribed dose",
+        d: "bsaDose",
+        min: 0.001,
+        max: 100000,
+      },
+    ],
+    out: "doseMass",
+    dg: 2,
+    math: {
+      label: "BSA dose",
+      rhs: "Prescribed dose (mg/m²) × √[height (cm) × weight (kg) ÷ 3600]",
+    },
+    departments: ["Pharmacy", "Medicine", "Oncology"],
+    f: (v) => {
+      const bsa = Math.sqrt((v.height * v.weight) / 3600);
+      const dose = v.prescribed * bsa;
+      return {
+        val: dose,
+        steps: [
+          `BSA = √(${r(v.height, 1)} cm × ${r(v.weight, 2)} kg ÷ 3600) = ${r(bsa, 3)} m²`,
+          `Dose = ${r(v.prescribed, 3)} mg/m² × ${r(bsa, 3)} m² = ${r(dose, 2)} mg`,
+        ],
+        note: "Arithmetic only. Verify the prescribed dose and any regimen-specific cap or adjustment.",
+      };
+    },
+  },
+  {
+    id: "dose-volume",
+    n: "Dose-to-volume conversion",
+    al: "drug medication dose volume concentration mg mL liquid oral injectable",
+    s: "Pharmacology",
+    d: "Converts a prescribed medicine amount and verified product concentration into a volume.",
+    src: "Standard concentration and dimensional-analysis conversion",
+    lim: "Enter the concentration from the exact product being used. This does not select a dose, identify a formulation, or account for device measurement limits.",
+    in: [
+      {
+        id: "dose",
+        l: "Prescribed dose",
+        d: "doseMass",
+        min: 0.001,
+        max: 100000,
+      },
+      {
+        id: "concentration",
+        l: "Product concentration",
+        d: "drugConcentration",
+        min: 0.000001,
+        max: 100000,
+      },
+    ],
+    out: "vol",
+    dg: 2,
+    math: {
+      label: "Volume to administer",
+      numerator: "Prescribed amount (mg)",
+      denominator: "Product concentration (mg/mL)",
+    },
+    departments: ["Pharmacy", "Medicine", "Paediatrics", "Nursing"],
+    f: (v) => {
+      const volume = v.dose / v.concentration;
+      return {
+        val: volume,
+        steps: [
+          `Volume = prescribed amount ÷ product concentration`,
+          `${r(v.dose, 3)} mg ÷ ${r(v.concentration, 4)} mg/mL = ${r(volume, 2)} mL`,
+        ],
+        note: "Confirm the medicine, formulation, concentration, and measuring device before use.",
+      };
+    },
+  },
+  {
+    id: "dose-infusion",
+    n: "Weight-based infusion rate and total dose",
+    al: "drug medication infusion rate mcg kg min mg hour concentration duration total amount",
+    s: "Pharmacology",
+    d: "Converts a prescribed continuous weight-based dose rate and product concentration into an infusion volume rate and total amount over a duration.",
+    src: "Standard dimensional-analysis infusion equations",
+    lim: "Use only the prescribed infusion rate and verified product concentration. This calculation does not set or validate a titration target, pump settings, compatibility, or patient-specific monitoring.",
+    in: [
+      { id: "weight", l: "Patient weight", d: "mass", min: 0.1, max: 500 },
+      {
+        id: "rate",
+        l: "Prescribed dose rate",
+        d: "doseRate",
+        min: 0.0001,
+        max: 100000,
+      },
+      {
+        id: "concentration",
+        l: "Infusion concentration",
+        d: "drugConcentration",
+        min: 0.000001,
+        max: 100000,
+      },
+      { id: "duration", l: "Infusion duration", d: "timeHours", min: 0.01, max: 10000 },
+    ],
+    out: "rate",
+    dg: 2,
+    math: {
+      label: "Infusion volume rate",
+      rhs: "Dose rate × weight ÷ concentration; total dose = dose rate × weight × duration",
+    },
+    departments: ["Pharmacy", "Medicine", "Emergency Medicine", "Intensive Care"],
+    more: "The result is a mathematical conversion, not an infusion order. Independently check pump units, concentration, line setup, and local monitoring requirements.",
+    f: (v) => {
+      const doseMgPerHour = (v.rate * v.weight * 60) / 1000;
+      const volumeMlPerHour = doseMgPerHour / v.concentration;
+      const totalDoseMg = doseMgPerHour * v.duration;
+      const totalVolumeMl = volumeMlPerHour * v.duration;
+      return {
+        val: volumeMlPerHour,
+        steps: [
+          `Dose rate = ${r(v.rate, 4)} mcg/kg/min × ${r(v.weight, 2)} kg = ${r(v.rate * v.weight, 3)} mcg/min`,
+          `Convert to hourly amount = ${r(v.rate * v.weight, 3)} mcg/min × 60 ÷ 1000 = ${r(doseMgPerHour, 3)} mg/hr`,
+          `Volume rate = ${r(doseMgPerHour, 3)} mg/hr ÷ ${r(v.concentration, 4)} mg/mL = ${r(volumeMlPerHour, 3)} mL/hr`,
+          `Over ${r(v.duration, 2)} hr: ${r(totalDoseMg, 3)} mg total in ${r(totalVolumeMl, 2)} mL`,
+        ],
+        note: "Verify all pump settings and units independently against the prescription and local protocol.",
+      };
+    },
+  },
+  {
+    id: "dose-loading",
+    n: "Loading dose (pharmacokinetic estimate)",
+    al: "drug loading dose target concentration volume distribution bioavailability",
+    s: "Pharmacology",
+    d: "Estimates a loading amount from an entered target concentration, volume of distribution, and bioavailability.",
+    src: "Standard pharmacokinetic loading-dose equation",
+    lim: "This simplified equation omits drug-specific kinetics, target selection, dose caps, route, patient factors, and clinical monitoring. Use clinician-verified parameters only.",
+    in: [
+      {
+        id: "target",
+        l: "Prescribed target concentration",
+        d: "drugLevel",
+        min: 0.001,
+        max: 100000,
+      },
+      {
+        id: "volume",
+        l: "Volume of distribution",
+        d: "drugVolume",
+        min: 0.001,
+        max: 100000,
+      },
+      { id: "bioavailability", l: "Bioavailability", d: "pct", min: 0.01, max: 100 },
+    ],
+    out: "doseMass",
+    dg: 2,
+    math: {
+      label: "Loading dose",
+      rhs: "Target concentration × volume of distribution ÷ bioavailability fraction",
+    },
+    departments: ["Pharmacy", "Medicine"],
+    f: (v) => {
+      const fraction = v.bioavailability / 100;
+      const dose = (v.target * v.volume) / fraction;
+      return {
+        val: dose,
+        steps: [
+          `Bioavailability fraction = ${r(v.bioavailability, 2)}% ÷ 100 = ${r(fraction, 4)}`,
+          `Loading amount = ${r(v.target, 3)} mg/L × ${r(v.volume, 3)} L ÷ ${r(fraction, 4)} = ${r(dose, 2)} mg`,
+        ],
+        note: "A pharmacokinetic estimate only. A clinician must confirm the target and medicine-specific regimen.",
+      };
+    },
+  },
+  {
+    id: "dose-maintenance",
+    n: "Maintenance dose (pharmacokinetic estimate)",
+    al: "drug maintenance dose target concentration clearance interval bioavailability",
+    s: "Pharmacology",
+    d: "Estimates an amount per dosing interval from an entered target concentration, clearance, interval, and bioavailability.",
+    src: "Standard pharmacokinetic maintenance-dose equation",
+    lim: "This simplified equation assumes steady-state linear pharmacokinetics and omits drug-specific kinetics, dose limits, route, patient factors, and clinical monitoring. Use clinician-verified parameters only.",
+    in: [
+      {
+        id: "target",
+        l: "Prescribed target concentration",
+        d: "drugLevel",
+        min: 0.001,
+        max: 100000,
+      },
+      {
+        id: "clearance",
+        l: "Medicine clearance",
+        d: "drugClearance",
+        min: 0.001,
+        max: 100000,
+      },
+      { id: "interval", l: "Dosing interval", d: "doseInterval", min: 0.01, max: 10000 },
+      { id: "bioavailability", l: "Bioavailability", d: "pct", min: 0.01, max: 100 },
+    ],
+    out: "doseMass",
+    dg: 2,
+    math: {
+      label: "Maintenance amount per interval",
+      rhs: "Target concentration × clearance × dosing interval ÷ bioavailability fraction",
+    },
+    departments: ["Pharmacy", "Medicine"],
+    f: (v) => {
+      const fraction = v.bioavailability / 100;
+      const dose = (v.target * v.clearance * v.interval) / fraction;
+      return {
+        val: dose,
+        steps: [
+          `Bioavailability fraction = ${r(v.bioavailability, 2)}% ÷ 100 = ${r(fraction, 4)}`,
+          `Amount per interval = ${r(v.target, 3)} mg/L × ${r(v.clearance, 3)} L/hr × ${r(v.interval, 2)} hr ÷ ${r(fraction, 4)} = ${r(dose, 2)} mg`,
+        ],
+        note: "A pharmacokinetic estimate only. A clinician must confirm the target and medicine-specific regimen.",
+      };
+    },
+  },
+  {
+    id: "dose-pediatric-cap",
+    n: "Paediatric weight-based dose with maximum",
+    al: "paediatric pediatric child drug dose weight mg kg maximum cap adult",
+    s: "Pharmacology",
+    d: "Calculates a prescribed per-dose amount by weight and applies the maximum per-dose limit entered by the user.",
+    src: "Standard dimensional-analysis dosing equation",
+    lim: "Enter a medicine-specific prescribed dose and verified maximum. This does not determine a safe paediatric dose or check age, indication, organ function, formulation, or daily maximum.",
+    in: [
+      { id: "weight", l: "Patient weight", d: "mass", min: 0.1, max: 500 },
+      {
+        id: "prescribed",
+        l: "Prescribed dose per kg per dose",
+        d: "doseMass",
+        min: 0.001,
+        max: 100000,
+      },
+      {
+        id: "maximum",
+        l: "Verified maximum per dose (adult maximum if applicable)",
+        d: "doseMass",
+        min: 0.001,
+        max: 100000,
+      },
+    ],
+    out: "doseMass",
+    dg: 2,
+    math: {
+      label: "Capped dose",
+      rhs: "Lower of (weight × prescribed dose per kg per dose) or verified maximum per dose",
+    },
+    departments: ["Pharmacy", "Paediatrics"],
+    f: (v) => {
+      const calculated = v.weight * v.prescribed;
+      const dose = Math.min(calculated, v.maximum);
+      return {
+        val: dose,
+        steps: [
+          `Weight-based amount = ${r(v.weight, 2)} kg × ${r(v.prescribed, 3)} mg/kg/dose = ${r(calculated, 2)} mg`,
+          `Compare with verified maximum = ${r(v.maximum, 2)} mg per dose`,
+          `Amount after cap = ${r(dose, 2)} mg per dose`,
+        ],
+        note:
+          calculated > v.maximum
+            ? "The calculated amount exceeded the entered maximum and was capped. Verify that maximum for this medicine and patient."
+            : "The calculated amount is below the entered maximum. Verify the prescribed dose and maximum independently.",
+      };
+    },
+  },
 ];
 
 export const GC: Record<string, string> = {
@@ -1842,6 +2170,7 @@ export const ZG: Record<
 
 export const IC: Record<string, string> = {
   General: "scale",
+  Pharmacology: "scale",
   Cardiovascular: "heart",
   Respiratory: "lungs",
   Renal: "droplet",
@@ -1857,6 +2186,7 @@ export const IC: Record<string, string> = {
 };
 export const HU: Record<string, number> = {
   General: 220,
+  Pharmacology: 315,
   Cardiovascular: 350,
   Respiratory: 195,
   Renal: 210,
@@ -1955,6 +2285,13 @@ const departmentsByFormula: Record<string, string[]> = {
   "risk-reduction": ["Medicine", "Primary Care", "Public Health"],
   "estimated-average-glucose": ["Endocrinology", "Medicine", "Primary Care"],
   parkland: ["Burns", "Emergency Medicine", "Surgery"],
+  "dose-weight": ["Pharmacy", "Medicine", "Paediatrics"],
+  "dose-bsa": ["Pharmacy", "Medicine", "Oncology"],
+  "dose-volume": ["Pharmacy", "Medicine", "Paediatrics", "Nursing"],
+  "dose-infusion": ["Pharmacy", "Medicine", "Emergency Medicine", "Intensive Care"],
+  "dose-loading": ["Pharmacy", "Medicine"],
+  "dose-maintenance": ["Pharmacy", "Medicine"],
+  "dose-pediatric-cap": ["Pharmacy", "Paediatrics"],
   apri: ["Gastroenterology", "Medicine"],
   pp: ["Cardiology", "Emergency Medicine", "Intensive Care"],
   si: ["Cardiology", "Emergency Medicine", "Intensive Care"],

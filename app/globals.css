@@ -25,6 +25,9 @@
   padding-top: env(safe-area-inset-top, 0px);
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
+.update-card-action {
+  margin-top: 12px;
+}
 .whats-new-dialog {
   width: min(680px, calc(100vw - 32px));
   max-width: calc(100vw - 32px);
@@ -261,8 +264,7 @@
 .whats-new-dialog[open] {
   animation: about-arrive 320ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
-.whats-new-heading,
-.update-card-heading {
+.whats-new-heading {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -310,22 +312,97 @@
   overflow-y: auto;
 }
 .update-card {
-  padding: 16px;
   border: 1px solid var(--line);
   border-radius: 18px;
   background: var(--glass);
   animation: soft-rise 280ms ease both;
+  transition:
+    border-color 180ms ease,
+    background-color 180ms ease,
+    box-shadow 180ms ease;
 }
-.update-card h4,
+.update-card.is-unread {
+  border-color: color-mix(in srgb, var(--action) 48%, var(--line));
+  background:
+    linear-gradient(
+      120deg,
+      color-mix(in srgb, var(--action) 9%, transparent),
+      transparent 72%
+    ),
+    var(--glass);
+}
+.update-card.is-open {
+  border-color: color-mix(in srgb, var(--action) 36%, var(--line));
+  background: color-mix(in srgb, var(--action) 8%, var(--glass));
+  box-shadow: 0 8px 24px -18px var(--action);
+}
+.update-accordion-toggle {
+  display: flex;
+  width: 100%;
+  min-height: 64px;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  text-align: left;
+}
+.update-accordion-toggle:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: -4px;
+}
+.update-accordion-title {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 5px;
+}
+.update-accordion-title strong {
+  overflow-wrap: anywhere;
+}
+.update-status {
+  width: fit-content;
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+.is-unread .update-status {
+  color: var(--action);
+}
+.is-read .update-status::before {
+  margin-right: 5px;
+  color: var(--action);
+  content: "✓";
+}
+.update-accordion-toggle time {
+  flex: none;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+.update-chevron {
+  width: 9px;
+  height: 9px;
+  flex: none;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  color: var(--muted);
+  transform: rotate(45deg) translateY(-2px);
+  transition: transform 180ms ease;
+}
+.is-open .update-chevron {
+  transform: rotate(225deg) translate(-2px, -1px);
+}
+.update-content {
+  padding: 0 16px 16px;
+  animation: soft-rise 180ms ease both;
+}
 .updates-empty h4 {
   margin: 0;
   font-size: 1rem;
   overflow-wrap: anywhere;
-}
-.update-card time {
-  flex: none;
-  color: var(--muted);
-  font-size: 0.78rem;
 }
 .update-card p,
 .update-prompt p,
@@ -391,6 +468,33 @@
   border-radius: 50%;
   background: #e11d48;
   box-shadow: 0 0 0 2px rgba(225, 29, 72, 0.16);
+  animation: update-pulse 1.8s ease-in-out infinite;
+}
+.update-badge {
+  display: inline-block;
+  margin-left: 5px;
+  margin-top: 5px;
+  padding: 2px 5px;
+  border-radius: 5px;
+  background: #e11d48;
+  color: #fff;
+  font-size: 0.58rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+  vertical-align: 2px;
+  animation: new-badge-pulse 1.5s ease-in-out infinite;
+}
+@keyframes new-badge-pulse {
+  50% {
+    box-shadow: 0 0 0 4px rgba(225, 29, 72, 0.12);
+    transform: scale(1.06);
+  }
+}
+@keyframes update-pulse {
+  50% {
+    box-shadow: 0 0 0 5px rgba(225, 29, 72, 0.08);
+  }
 }
 .visually-hidden {
   position: absolute;
@@ -716,16 +820,25 @@ header {
   white-space: nowrap;
 }
 .profile-trigger {
-  display: grid;
-  width: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-width: 36px;
   height: 36px;
-  padding: 0;
-  place-items: center;
+  padding: 0 11px;
   border: 1px solid var(--line);
-  border-radius: 50%;
+  border-radius: 999px;
   background: var(--glass);
   color: var(--ink);
   cursor: pointer;
+  font-size: 0.84rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.profile-trigger .ui-icon {
+  width: 18px;
+  height: 18px;
 }
 .profile-anchor {
   position: relative;
@@ -1704,25 +1817,30 @@ footer a {
   }
 }
 
+:root.theme-transitioning,
+:root.theme-transitioning * {
+  transition:
+    background 0.3s ease-in-out,
+    color 0.3s ease-in-out,
+    border-color 0.3s ease-in-out,
+    box-shadow 0.3s ease-in-out,
+    fill 0.3s ease-in-out,
+    stroke 0.3s ease-in-out;
+}
 @supports (view-transition-name: root) {
   ::view-transition-old(root) {
     animation: none;
   }
   ::view-transition-new(root) {
-    animation: theme-reveal 680ms cubic-bezier(0.22, 0.75, 0.25, 1) both;
+    animation: theme-curtain 300ms ease-in-out both;
   }
-  @keyframes theme-reveal {
+  @keyframes theme-curtain {
     from {
-      clip-path: circle(0 at var(--theme-x, 50vw) var(--theme-y, 50vh));
+      clip-path: circle(0 at 50% 50%);
     }
     to {
-      clip-path: circle(150vmax at var(--theme-x, 50vw) var(--theme-y, 50vh));
+      clip-path: circle(150vmax at 50% 50%);
     }
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  ::view-transition-new(root) {
-    animation: none;
   }
 }
 @media (hover: none) {
@@ -2533,8 +2651,17 @@ dialog.sheet {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  ::view-transition-new(root) {
+    animation: none;
+  }
+  :root.theme-transitioning,
+  :root.theme-transitioning * {
+    transition: none;
+  }
   .category-toolbar .category-mode,
   .update-card,
+  .update-content,
+  .update-chevron,
   .updates-empty,
   .whats-new-dialog[open],
   #feedback-dialog[open],
@@ -2547,7 +2674,9 @@ dialog.sheet {
     transition: none;
   }
   .tg .ui-icon,
-  .button-spinner {
+  .button-spinner,
+  .update-dot,
+  .update-badge {
     animation: none;
   }
 }

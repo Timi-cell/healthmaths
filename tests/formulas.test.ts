@@ -192,6 +192,62 @@ describe("formula maths", () => {
       "Second half = 4200 mL over the following 16 hours (263 mL per hour as an arithmetic estimate)",
     );
   });
+  it("weight-based daily dose is divided across the selected daily frequency", () => {
+    const result = run("dose-weight", {
+      weight: 20,
+      prescribed: 30,
+      basis: 1,
+      frequency: 3,
+    });
+    expect(result.val).toBe(200);
+    expect(result.steps).toContain(
+      "Amount per dose = 600 mg/day ÷ 3 doses/day = 200 mg",
+    );
+  });
+  it("Mosteller BSA scales the prescribed dose per square metre", () =>
+    expect(
+      run("dose-bsa", { weight: 70, height: 175, prescribed: 100 }).val,
+    ).toBeCloseTo(184.5, 1));
+  it("dose-to-volume conversion respects concentration units", () =>
+    expect(
+      run("dose-volume", { dose: 250, concentration: 50 }).val,
+    ).toBe(5));
+  it("weight-based infusion calculates rate and total amount over duration", () => {
+    const result = run("dose-infusion", {
+      weight: 70,
+      rate: 5,
+      concentration: 2,
+      duration: 4,
+    });
+    expect(result.val).toBeCloseTo(10.5, 5);
+    expect(result.steps.at(-1)).toContain("84 mg total in 42 mL");
+  });
+  it("loading and maintenance estimates apply bioavailability", () => {
+    expect(
+      run("dose-loading", {
+        target: 10,
+        volume: 40,
+        bioavailability: 100,
+      }).val,
+    ).toBe(400);
+    expect(
+      run("dose-maintenance", {
+        target: 10,
+        clearance: 5,
+        interval: 12,
+        bioavailability: 100,
+      }).val,
+    ).toBe(600);
+  });
+  it("paediatric dose is capped at the verified maximum entered", () => {
+    const result = run("dose-pediatric-cap", {
+      weight: 20,
+      prescribed: 10,
+      maximum: 150,
+    });
+    expect(result.val).toBe(150);
+    expect(result.note).toContain("was capped");
+  });
 });
 
 describe("unit conversions (base = value x factor)", () => {
@@ -206,11 +262,17 @@ describe("unit conversions (base = value x factor)", () => {
   it("6 ft = 182.88 cm", () => expect(6 * U.len.ft).toBeCloseTo(182.88, 2));
   it("65 mL/hr = 1560 mL/day", () =>
     expect(65 / U.rate["mL/day"]).toBeCloseTo(1560, 5));
+  it("drug concentration units convert to mg/mL", () => {
+    expect(1 * U.drugConcentration["g/L"]).toBe(1);
+    expect(1000 * U.drugConcentration["mg/L"]).toBe(1);
+  });
+  it("weight-based infusion units convert to mcg/kg/min", () =>
+    expect(U.doseRate["mg/kg/hr"]).toBeCloseTo(1000 / 60, 8));
 });
 
 describe("registry integrity (catches mistakes when you add formulas)", () => {
-  it("contains the 55 established, 21 prior additions and 2 verified additions", () =>
-    expect(F).toHaveLength(78));
+  it("contains the 78 existing formulas and 7 drug-dose additions", () =>
+    expect(F).toHaveLength(85));
   it("includes the intended formula additions", () => {
     expect(F.map((f) => f.id)).toEqual(
       expect.arrayContaining([
@@ -237,6 +299,13 @@ describe("registry integrity (catches mistakes when you add formulas)", () => {
         "estimated-average-glucose",
         "apri",
         "parkland",
+        "dose-weight",
+        "dose-bsa",
+        "dose-volume",
+        "dose-infusion",
+        "dose-loading",
+        "dose-maintenance",
+        "dose-pediatric-cap",
       ]),
     );
   });
@@ -306,9 +375,19 @@ describe("registry integrity (catches mistakes when you add formulas)", () => {
     ).toBe(false);
     expect(departments.some((x) => x.includes("(O&G)"))).toBe(false);
   });
-  it("does not publish the paused pharmacology category", () => {
-    expect(F.some((f) => f.s === "Pharmacology")).toBe(false);
+  it("publishes general dose arithmetic without the retired generic dose formula", () => {
     expect(F.some((f) => f.id === "dose")).toBe(false);
+    expect(
+      F.filter((f) => f.s === "Pharmacology").map((f) => f.id),
+    ).toEqual([
+      "dose-weight",
+      "dose-bsa",
+      "dose-volume",
+      "dose-infusion",
+      "dose-loading",
+      "dose-maintenance",
+      "dose-pediatric-cap",
+    ]);
   });
   it("every formula runs at mid-range inputs and explains its steps", () => {
     for (const f of F) {

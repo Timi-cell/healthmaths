@@ -56,7 +56,11 @@ type PendingDeletion =
   | { type: "history-item"; id: string }
   | { type: "clear-used" }
   | { type: "clear-history" };
-type WhatsNewState = { read: string[]; dismissed: string[] };
+type WhatsNewState = {
+  read: string[];
+  dismissed: string[];
+  opened: string[];
+};
 const CATEGORY_MODES: [CategoryMode, string][] = [
   ["systems", "Body systems"],
   ["departments", "Departments"],
@@ -82,11 +86,13 @@ export default function App() {
   const [open, setOpen] = useState(false); // mobile: calculator full screen
   const [tab, setTab] = useState<Tab>("all");
   const [theme, setTheme] = useState<"light" | "dark">("light");
+  const [formulaOpened, setFormulaOpened] = useState(false);
   const [hist, setHist] = useState<Entry[]>([]);
   const [used, setUsed] = useState<Used>({});
   const [whatsNew, setWhatsNew] = useState<WhatsNewState>({
     read: [],
     dismissed: [],
+    opened: [],
   });
   const [ready, setReady] = useState(false);
   const [online, setOnline] = useState(true);
@@ -120,13 +126,15 @@ export default function App() {
   const privacyDialog = useRef<HTMLDialogElement>(null);
   const appOpened = useRef(false);
   const previousOnline = useRef<boolean | null>(null);
+  const themeTransitionTimer = useRef<number | null>(null);
 
   const visibleUpdates = WHATS_NEW.filter(
     (item) => !whatsNew.dismissed.includes(item.id),
   );
-  const unreadUpdates = visibleUpdates.filter(
-    (item) => !whatsNew.read.includes(item.id),
-  ).length;
+  const unreadUpdateIds = visibleUpdates
+    .filter((item) => !whatsNew.read.includes(item.id))
+    .map((item) => item.id);
+  const unreadUpdates = unreadUpdateIds.length;
   const categories = useMemo(() => {
     const labels =
       categoryMode === "systems"
@@ -164,7 +172,19 @@ export default function App() {
   useEffect(() => {
     setHist(load<Entry[]>(KEYS.history, []));
     setUsed(load<Used>(KEYS.used, {}));
-    setWhatsNew(load<WhatsNewState>(KEYS.whatsNew, { read: [], dismissed: [] }));
+    const savedWhatsNew = load<Partial<WhatsNewState>>(KEYS.whatsNew, {});
+    setWhatsNew({
+      read: Array.isArray(savedWhatsNew.read)
+        ? savedWhatsNew.read.filter((id) => typeof id === "string")
+        : [],
+      dismissed: Array.isArray(savedWhatsNew.dismissed)
+        ? savedWhatsNew.dismissed.filter((id) => typeof id === "string")
+        : [],
+      opened: Array.isArray(savedWhatsNew.opened)
+        ? savedWhatsNew.opened.filter((id) => typeof id === "string")
+        : [],
+    });
+    setFormulaOpened(load<boolean>(KEYS.formulaOpened, false));
     try {
       setProfile(loadLocalProfile());
     } catch {
@@ -264,6 +284,7 @@ export default function App() {
       const id = new URL(window.location.href).searchParams.get("f");
       const formula = F.find((item) => item.id === id);
       if (formula) {
+        markFormulaOpened();
         track("formula_viewed", {
           formulaId: formula.id,
           category: formula.systems?.[0] ?? formula.s,
@@ -363,7 +384,12 @@ export default function App() {
     if (replace) window.history.replaceState(window.history.state, "", address);
     else window.history.pushState(window.history.state, "", address);
   };
+  const markFormulaOpened = () => {
+    setFormulaOpened(true);
+    save(KEYS.formulaOpened, true);
+  };
   const openFormula = (f: Formula) => {
+    markFormulaOpened();
     track("formula_viewed", {
       formulaId: f.id,
       category: f.systems?.[0] ?? f.s,
@@ -377,6 +403,7 @@ export default function App() {
   const openEntry = (e: Entry) => {
     const f = F.find((x) => x.id === e.fid);
     if (!f) return;
+    markFormulaOpened();
     track("formula_viewed", {
       formulaId: f.id,
       category: f.systems?.[0] ?? f.s,
@@ -427,6 +454,7 @@ export default function App() {
   const clearAllUpdates = () => {
     setWhatsNew((current) => ({
       read: current.read,
+      opened: current.opened,
       dismissed: [
         ...new Set([
           ...current.dismissed,
@@ -437,43 +465,40 @@ export default function App() {
       ],
     }));
   };
-  const toggleTheme = (event: MouseEvent<HTMLButtonElement>) => {
+  const toggleTheme = () => {
     const next = theme === "light" ? "dark" : "light";
     track("theme_changed", { theme: next });
     const root = document.documentElement;
-    root.style.setProperty(
-      "--theme-x",
-      `${event.clientX || window.innerWidth / 2}px`,
-    );
-    root.style.setProperty(
-      "--theme-y",
-      `${event.clientY || window.innerHeight / 2}px`,
-    );
     const applyTheme = () => {
       setTheme(next);
       root.dataset.theme = next;
       save(KEYS.theme, next);
     };
-    const transitionDocument = document as Document & {
-      startViewTransition?: (callback: () => void) => {
-        finished: Promise<void>;
-      };
-    };
     const prefersReducedMotion = window.matchMedia(
       "(prefers-reduced-motion: reduce)",
     ).matches;
-    if (!prefersReducedMotion && transitionDocument.startViewTransition) {
-      const transition = transitionDocument.startViewTransition(applyTheme);
-      const clearOrigin = () => {
-        root.style.removeProperty("--theme-x");
-        root.style.removeProperty("--theme-y");
-      };
-      void transition.finished.then(clearOrigin, clearOrigin);
-    } else {
-      applyTheme();
-      root.style.removeProperty("--theme-x");
-      root.style.removeProperty("--theme-y");
+    if (themeTransitionTimer.current !== null) {
+      window.clearTimeout(themeTransitionTimer.current);
+      themeTransitionTimer.current = null;
     }
+    const transitionDocument = document as Document & {
+      startViewTransition?: (callback: () => void) => unknown;
+    };
+    if (!prefersReducedMotion && transitionDocument.startViewTransition) {
+      root.classList.remove("theme-transitioning");
+      transitionDocument.startViewTransition(applyTheme);
+      return;
+    }
+    if (!prefersReducedMotion) {
+      root.classList.add("theme-transitioning");
+      themeTransitionTimer.current = window.setTimeout(() => {
+        root.classList.remove("theme-transitioning");
+        themeTransitionTimer.current = null;
+      }, 350);
+    } else {
+      root.classList.remove("theme-transitioning");
+    }
+    applyTheme();
   };
   const chooseAnalytics = (enabled: boolean) => {
     if (enabled && !isAnalyticsConfigured()) return;
@@ -507,11 +532,19 @@ export default function App() {
         <span className="whats-new-label">
           What&apos;s{" "}
           <span className="new-word">
-            New{visibleUpdates.length > 0 && <i className="update-dot" aria-hidden="true" />}
+            New
+            {unreadUpdates > 0 && (
+              <>
+                {/* <i className="update-dot" aria-hidden="true" /> */}
+                <span className="update-badge" aria-hidden="true">
+                  NEW
+                </span>
+              </>
+            )}
           </span>
-          {visibleUpdates.length > 0 && (
+          {unreadUpdates > 0 && (
             <span className="visually-hidden">
-              , {visibleUpdates.length} update{visibleUpdates.length === 1 ? "" : "s"} available; clear all to dismiss
+              , {unreadUpdates} unread update{unreadUpdates === 1 ? "" : "s"}
             </span>
           )}
         </span>
@@ -619,6 +652,7 @@ export default function App() {
                 title="Profile"
               >
                 <Icon name="profile" />
+                {!profile?.username && <span>Profile</span>}
               </button>
               {profile?.username && (
                 <span className="profile-greeting" aria-hidden="true">
@@ -784,7 +818,7 @@ export default function App() {
       )} */}
       <main>
         <div className="left">
-          <InstallPrompt show={hist.length > 0} />
+          <InstallPrompt show={formulaOpened} />
           <div className="tabs" role="tablist" aria-label="Library">
             {TABS.map(([k, icon, l]) => (
               <button
@@ -1084,9 +1118,25 @@ export default function App() {
         open={whatsNewOpen}
         onClose={closeWhatsNew}
         entries={visibleUpdates}
+        unreadIds={unreadUpdateIds}
+        openedIds={whatsNew.opened}
         unreadCount={unreadUpdates}
+        onRead={(id) => {
+          setWhatsNew((current) => ({
+            ...current,
+            read: [...new Set([...current.read, id])],
+            opened: [...new Set([...current.opened, id])],
+          }));
+        }}
         onReadAll={readAllUpdates}
         onClearAll={clearAllUpdates}
+        onExplore={(formulaId) => {
+          const formula = F.find((item) => item.id === formulaId);
+          if (formula) {
+            closeWhatsNew();
+            openFormula(formula);
+          }
+        }}
       />
       <dialog
         ref={deleteDialog}

@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { WhatsNewEntry } from "@/lib/whats-new";
 import Icon from "./Icon";
 
@@ -7,20 +7,29 @@ type Props = {
   open: boolean;
   onClose: () => void;
   entries: WhatsNewEntry[];
+  unreadIds: string[];
+  openedIds: string[];
   unreadCount: number;
+  onRead: (id: string) => void;
   onReadAll: () => void;
   onClearAll: () => void;
+  onExplore: (formulaId: string) => void;
 };
 
 export default function WhatsNewDialog({
   open,
   onClose,
   entries,
+  unreadIds,
+  openedIds,
   unreadCount,
+  onRead,
   onReadAll,
   onClearAll,
+  onExplore,
 }: Props) {
   const ref = useRef<HTMLDialogElement>(null);
+  const [expandedIds, setExpandedIds] = useState<string[]>([]);
 
   useEffect(() => {
     const dialog = ref.current;
@@ -42,7 +51,7 @@ export default function WhatsNewDialog({
       <div className="whats-new-heading">
         <div>
           <span className="eyebrow">HealthMaths updates</span>
-          <h3 id="whats-new-title">What&apos;s New</h3>
+          <h3 id="whats-new-title">What&apos;s New?</h3>
         </div>
         <button
           className="dialog-close"
@@ -55,17 +64,63 @@ export default function WhatsNewDialog({
       </div>
       {entries.length ? (
         <div className="update-list">
-          {entries.map((entry) => (
-            <article className="update-card" key={entry.id}>
-              <div className="update-card-heading">
-                <h4>{entry.title}</h4>
-                {entry.date && <time>{entry.date}</time>}
-              </div>
-              {entry.body.map((paragraph, index) => (
-                <p key={`${entry.id}-${index}`}>{paragraph}</p>
-              ))}
-            </article>
-          ))}
+          {entries.map((entry) => {
+            const expanded = expandedIds.includes(entry.id);
+            const unread = unreadIds.includes(entry.id);
+            const opened = openedIds.includes(entry.id);
+            const contentId = `whats-new-content-${entry.id}`;
+
+            return (
+              <article
+                className={`update-card ${unread ? "is-unread" : "is-read"}${expanded ? " is-open" : ""}`}
+                key={entry.id}
+              >
+                <button
+                  className="update-accordion-toggle"
+                  type="button"
+                  aria-expanded={expanded}
+                  aria-controls={contentId}
+                  onClick={() => {
+                    if (expanded) {
+                      setExpandedIds((current) =>
+                        current.filter((id) => id !== entry.id),
+                      );
+                    } else {
+                      setExpandedIds((current) =>
+                        current.includes(entry.id)
+                          ? current
+                          : [...current, entry.id],
+                      );
+                      onRead(entry.id);
+                    }
+                  }}
+                >
+                  <span className="update-accordion-title">
+                    <strong>{entry.title}</strong>
+                    <span className="update-status">
+                      {opened ? "Opened" : unread ? "New update" : "Read"}
+                    </span>
+                  </span>
+                  {entry.date && <time>{entry.date}</time>}
+                  <span className="update-chevron" aria-hidden="true" />
+                </button>
+                <div id={contentId} className="update-content" hidden={!expanded}>
+                  {entry.body.map((paragraph, index) => (
+                    <p key={`${entry.id}-${index}`}>{paragraph}</p>
+                  ))}
+                  {entry.action && (
+                    <button
+                      className="btn update-card-action"
+                      type="button"
+                      onClick={() => onExplore(entry.action!.formulaId)}
+                    >
+                      {entry.action.label}
+                    </button>
+                  )}
+                </div>
+              </article>
+            );
+          })}
         </div>
       ) : (
         <div className="updates-empty">
@@ -79,8 +134,7 @@ export default function WhatsNewDialog({
       )}
       {entries.length > 0 && (
         <p className="updates-persistence">
-          Updates and the red indicator stay here until you choose Clear all.
-          New release notes will appear here after they are added to the app.
+          Updates remain here until you "Clear all".
         </p>
       )}
       {/* <section className="update-prompt" aria-label="Keep HealthMaths updated">

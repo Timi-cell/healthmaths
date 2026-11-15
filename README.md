@@ -7,14 +7,16 @@ HealthMaths is a clinical calculation reference for healthcare professionals, st
 - Search and browse formulas by **body system** or **department**
 - Formatted equations, readable calculation steps, sources, limitations, and notes
 - Unit-aware inputs and outputs
+- General drug-dose arithmetic for weight/BSA dosing, dose-to-volume, infusions, pharmacokinetic estimates, and entered dose caps
 - Local **Used** and calculation **History** lists
 - A **What's New** feed for future formula releases, fixes, and app updates
+- An install-to-home-screen prompt after the first formula is opened; **Not now** reminds again after two minutes
 - Physiotherapy measures including TUG, six-minute walk distance, gait speed, chair stand, and percentage change
 - Obstetric dating including estimated due date and gestational age from LMP
 - NEWS2, Winter’s formula, and corrected sodium in hyperglycaemia
 - Installable, offline-capable PWA
 - Optional feedback form that queues a user-submitted message while offline
-- Light and dark themes with a reduced-motion-aware radial reveal
+- Light and dark themes with a reduced-motion-aware color transition
 - Sticky search and connectivity indicator
 
 There is no sign-in or cloud profile. Users may save a username, email, institution, profession/course, and student level in this browser. Profile fields stay local unless the user separately enables profile sharing in the profile form; email is never included. Calculations, history, and Used counts also stay on the user's device. Product analytics are enabled by default for a new visitor after a notice is shown, and can be turned off at any time; previously opted-out users remain opted out. Feedback is sent only when the user chooses to submit it.
@@ -104,7 +106,7 @@ IndexedDB is not used as a special iOS persistence safeguard. Safari/WebKit mana
 
 The same calculator may be relevant to more than one department. For example, the paediatric 4–2–1 maintenance-fluid estimate is listed under both Paediatrics and Surgery. Cardiovascular calculators are grouped under the Cardiovascular body system rather than separate ECG, echo, haemodynamics, risk-score, and lipid categories.
 
-The catalogue includes NEWS2, Winter’s formula, a corrected-sodium estimate for hyperglycaemia, APRI, Parkland burn-fluid estimation, and additional renal, acid–base, respiratory, obstetric, haematology, endocrine and epidemiology calculators. These include potassium-deficit and free-water estimates, serum osmolality and osmolar gap, qSOFA and CURB-65, Child-Pugh and Apgar scores, paediatric eGFR, urine ACR, HOMA-IR, and eAG. NEWS2 is based on the [Royal College of Physicians’ NEWS2 resources](https://www.rcp.ac.uk/resources/national-early-warning-score-news-2/); corrected sodium uses the coefficient reviewed by [Tzamaloukas et al.](https://pmc.ncbi.nlm.nih.gov/articles/PMC7479837/). Each calculator includes its source and relevant limitations. Use local protocols and clinical judgement; scores and estimates do not replace assessment or treatment guidance.
+The catalogue includes NEWS2, Winter’s formula, a corrected-sodium estimate for hyperglycaemia, APRI, Parkland burn-fluid estimation, and additional renal, acid–base, respiratory, obstetric, haematology, endocrine and epidemiology calculators. These include potassium-deficit and free-water estimates, serum osmolality and osmolar gap, qSOFA and CURB-65, Child-Pugh and Apgar scores, paediatric eGFR, urine ACR, HOMA-IR, and eAG. Drug-dose tools cover prescribed weight-based and BSA-based arithmetic, dose-to-volume conversion, weight-based infusion rates, pharmacokinetic loading/maintenance estimates, and an entered paediatric maximum-dose cap. They do not recommend medication-specific doses or regimens; all values and product details must be verified by a qualified clinician against the prescription and local protocol. NEWS2 is based on the [Royal College of Physicians’ NEWS2 resources](https://www.rcp.ac.uk/resources/national-early-warning-score-news-2/); corrected sodium uses the coefficient reviewed by [Tzamaloukas et al.](https://pmc.ncbi.nlm.nih.gov/articles/PMC7479837/). Each calculator includes its source and relevant limitations. Use local protocols and clinical judgement; scores and estimates do not replace assessment or treatment guidance.
 
 To publish a What's New message with a release, edit `lib/whats-new.ts` before deploying and add an entry to `WHATS_NEW`, for example:
 
@@ -119,11 +121,9 @@ export const WHATS_NEW: WhatsNewEntry[] = [
 ];
 ```
 
-Use a unique ID for every release note and never reuse an old ID. After the updated app is deployed, the red dot appears beside What's New for users who have not cleared that entry before. Opening the tab or choosing Read all does not remove the dot; it stays until the user chooses Clear all. Add another new ID next time to make the indicator appear again, including for users who cleared earlier updates.
+Use a unique ID for every release note and never reuse an old ID. Updates appear as collapsed accordions. Opening one marks it read and leaves an **Opened** check when collapsed; **Read all** marks every visible update read without removing the messages. The pulsing red dot and **NEW** badge appear whenever unread updates remain, including a later release with a new ID. **Clear all** removes every visible update and its accordion. An entry can also provide an action button to open its featured formula.
 
-Pharmacology dosing calculators are not included in the launch catalogue.
-
-The current catalogue contains **78 unique formula IDs**: the existing 76 entries plus the AST-to-platelet ratio index (APRI) and Parkland burn-fluid estimate. No duplicate IDs were found in the registry, and no existing formulas were removed. The requested 100–150 total and a complete source-by-source clinical revalidation of the entire existing catalogue remain outstanding; formulas should be used with their cited sources, limitations, and local clinical protocols.
+The current catalogue contains **85 unique formula IDs**: the existing 78 entries plus seven general drug-dose calculation tools. No duplicate IDs were found in the registry, and no existing formulas were removed. The requested 100–150 total and a complete source-by-source clinical revalidation of the entire existing catalogue remain outstanding; formulas should be used with their cited sources, limitations, and local clinical protocols.
 
 The Parkland entry shows the traditional first-24-hour arithmetic estimate and its time split. It is not a fluid order: use a current burn-service protocol and reassessment. APRI includes no universal threshold because interpretation depends on disease and population.
 

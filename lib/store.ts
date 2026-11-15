@@ -15,6 +15,7 @@ export const KEYS = {
   used: "healthmaths:v1:used",
   theme: "healthmaths:v1:theme",
   whatsNew: "healthmaths:v1:whats-new",
+  formulaOpened: "healthmaths:v1:formula-opened",
 };
 export const MAX_HISTORY = 50;
 

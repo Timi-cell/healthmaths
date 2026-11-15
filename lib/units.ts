@@ -43,6 +43,22 @@ export const U: Record<string, Record<string, number>> = {
   acr: { "mg/mmol": 1, "mg/g": 1 / 8.84 },
   ratioIndex: { ratio: 1 },
   ast: { "U/L": 1 },
+  doseMass: { mg: 1, g: 1000, mcg: 0.001, "µg": 0.001 },
+  bsaDose: { "mg/m²": 1, "g/m²": 1000, "mcg/m²": 0.001 },
+  drugConcentration: {
+    "mg/mL": 1,
+    "g/L": 1,
+    "mcg/mL": 0.001,
+    "mg/L": 0.001,
+    "g/mL": 1000,
+  },
+  drugLevel: { "mg/L": 1, "mcg/mL": 1, "mg/mL": 1000 },
+  drugVolume: { L: 1, mL: 0.001 },
+  drugClearance: { "L/hr": 1, "mL/min": 0.06, "mL/hr": 0.001 },
+  doseInterval: { hr: 1, min: 1 / 60, day: 24 },
+  doseFrequency: { "doses/day": 1 },
+  doseRate: { "mcg/kg/min": 1, "mg/kg/hr": 1000 / 60 },
+  timeHours: { hr: 1, min: 1 / 60, day: 24 },
 };
 
 export const r = (x: number, d = 1): string =>

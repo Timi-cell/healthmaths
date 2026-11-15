@@ -3,18 +3,30 @@ import { useEffect, useState } from "react";
 import { track } from "@/lib/analytics";
 
 type BIP = Event & { prompt: () => Promise<void> };
-type Snooze = { activeMs: number };
+type Snooze = { until: number };
 const KEY = "healthmaths:install-dismissed";
 const PERMANENTLY_DISMISSED = "installed";
-const REMINDER_DELAY = 10 * 60 * 1000;
+const REMINDER_DELAY = 2 * 60 * 1000;
 
 function readSnooze(): Snooze | null {
   try {
     const saved = localStorage.getItem(KEY);
     if (!saved || saved === PERMANENTLY_DISMISSED) return null;
-    if (saved === "1") return { activeMs: 0 };
-    const value = JSON.parse(saved) as Partial<Snooze>;
-    if (typeof value.activeMs === "number") return { activeMs: value.activeMs };
+    if (saved === "1") {
+      const migrated = { until: Date.now() + REMINDER_DELAY };
+      saveSnooze(migrated);
+      return migrated;
+    }
+    const value = JSON.parse(saved) as {
+      until?: unknown;
+      activeMs?: unknown;
+    };
+    if (typeof value.until === "number") return { until: value.until };
+    if (typeof value.activeMs === "number") {
+      const migrated = { until: Date.now() + REMINDER_DELAY };
+      saveSnooze(migrated);
+      return migrated;
+    }
   } catch {
     return null;
   }
@@ -78,30 +90,32 @@ export default function InstallPrompt({ show }: { show: boolean }) {
   }, []);
 
   useEffect(() => {
-    if (!snooze || snooze.activeMs >= REMINDER_DELAY) return;
-    const timer = window.setInterval(() => {
-      if (document.visibilityState !== "visible") return;
-      setSnooze((current) => {
-        if (!current) return current;
-        const next = {
-          ...current,
-          activeMs: Math.min(current.activeMs + 30_000, REMINDER_DELAY),
-        };
-        saveSnooze(next);
-        return next;
-      });
-    }, 30_000);
-    return () => window.clearInterval(timer);
+    if (!snooze) return;
+    const clearExpiredSnooze = () => {
+      if (Date.now() < snooze.until) return;
+      try {
+        localStorage.removeItem(KEY);
+      } catch {
+        // The prompt can still be shown for this session.
+      }
+      setSnooze(null);
+    };
+    const timer = window.setTimeout(
+      clearExpiredSnooze,
+      Math.max(0, snooze.until - Date.now()),
+    );
+    document.addEventListener("visibilitychange", clearExpiredSnooze);
+    return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener("visibilitychange", clearExpiredSnooze);
+    };
   }, [snooze]);
-
-  const remindAgain =
-    snooze !== null && snooze.activeMs >= REMINDER_DELAY;
 
   const shouldShow =
     show &&
     !installed &&
     !permanentlyDismissed &&
-    !(snooze && !remindAgain) &&
+    !(snooze && Date.now() < snooze.until) &&
     Boolean(evt || ios);
   useEffect(() => {
     if (shouldShow && !promptReported) {
@@ -111,19 +125,9 @@ export default function InstallPrompt({ show }: { show: boolean }) {
     if (!shouldShow) setPromptReported(false);
   }, [shouldShow, promptReported]);
 
-  useEffect(() => {
-    if (!remindAgain) return;
-    try {
-      localStorage.removeItem(KEY);
-    } catch {
-      // The prompt can still be shown in this session.
-    }
-    setSnooze(null);
-  }, [remindAgain]);
-
   if (!shouldShow) return null;
   const dismiss = () => {
-    const next = { activeMs: 0 };
+    const next = { until: Date.now() + REMINDER_DELAY };
     saveSnooze(next);
     setSnooze(next);
   };
@@ -159,9 +163,9 @@ export default function InstallPrompt({ show }: { show: boolean }) {
         <button className="btn" onClick={dismiss}>
           Not now
         </button>
-        <button className="btn" onClick={acknowledge}>
+        {/* <button className="btn" onClick={acknowledge}>
           Okay
-        </button>
+        </button> */}
       </div>
     </div>
   );
