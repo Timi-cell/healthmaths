@@ -925,29 +925,31 @@ export default function App() {
           For education and decision support only. HealthMaths does not replace
           clinical judgment. Always check results against your local protocol.
         </span>
-        {process.env.NEXT_PUBLIC_X_URL && (
-          <a
-            className="x-follow"
-            href={process.env.NEXT_PUBLIC_X_URL}
-            target="_blank"
-            rel="noopener noreferrer"
+        <div className="footer-links">
+          {process.env.NEXT_PUBLIC_X_URL && (
+            <a
+              className="x-follow"
+              href={process.env.NEXT_PUBLIC_X_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  fill="currentColor"
+                  d="M18.9 1.15h3.68l-8.04 9.2L24 22.85h-7.41l-5.8-7.57-6.64 7.57H.47l8.6-9.83L0 1.15h7.59l5.24 6.93zm-1.29 19.66h2.04L6.49 3.08H4.3z"
+                />
+              </svg>
+              Follow us on X
+            </a>
+          )}
+          <button
+            className="linkbtn"
+            type="button"
+            onClick={() => setPrivacyChoicesOpen(true)}
           >
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path
-                fill="currentColor"
-                d="M18.9 1.15h3.68l-8.04 9.2L24 22.85h-7.41l-5.8-7.57-6.64 7.57H.47l8.6-9.83L0 1.15h7.59l5.24 6.93zm-1.29 19.66h2.04L6.49 3.08H4.3z"
-              />
-            </svg>
-            Follow us on X
-          </a>
-        )}
-        <button
-          className="linkbtn"
-          type="button"
-          onClick={() => setPrivacyChoicesOpen(true)}
-        >
-          Privacy choices
-        </button>
+            Privacy choices
+          </button>
+        </div>
         {/* <button className="linkbtn" onClick={() => setFb(true)}>
           Request a formula or send feedback
         </button> */}
