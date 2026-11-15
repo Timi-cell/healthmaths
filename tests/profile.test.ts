@@ -71,4 +71,14 @@ describe("local profile storage", () => {
       "Saved profile data has an unexpected format.",
     );
   });
+
+  it("does not save a profile with an invalid email address", () => {
+    const storage = memoryStorage();
+    vi.stubGlobal("localStorage", storage);
+
+    expect(() => saveLocalProfile({ ...profile, email: "not-an-email" })).toThrow(
+      "Profile email must be a valid email address.",
+    );
+    expect(storage.getItem(PROFILE_STORAGE_KEY)).toBeNull();
+  });
 });

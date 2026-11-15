@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { NIGERIAN_HEALTH_INSTITUTIONS, type LocalProfile } from "@/lib/profile";
+import { isValidEmail } from "@/lib/email";
 import Icon from "./Icon";
 
 type Props = {
@@ -114,6 +115,12 @@ export default function ProfileDialog({
       professionCourse: draft.professionCourse.trim(),
       studentLevel: draft.studentLevel.trim(),
     };
+
+    if (next.email && !isValidEmail(next.email)) {
+      setError("Please enter a valid email address.");
+      setStatus(null);
+      return;
+    }
 
     try {
       const shareResult = await onSave(next, shareDetails);
@@ -232,12 +239,21 @@ export default function ProfileDialog({
           <label htmlFor="profile-email">Email</label>
           <input
             id="profile-email"
-            type="email"
+            type="text"
+            inputMode="email"
             autoComplete="email"
             maxLength={254}
             placeholder="Enter your email here..."
             value={draft.email}
-            onChange={(event) => update("email", event.target.value)}
+            onChange={(event) => {
+              const value = event.target.value;
+              event.currentTarget.setCustomValidity(
+                value.trim() && !isValidEmail(value.trim())
+                  ? "Enter a valid email address."
+                  : "",
+              );
+              update("email", value);
+            }}
           />
         </div>
         <div className="row">

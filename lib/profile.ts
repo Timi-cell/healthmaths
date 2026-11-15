@@ -1,3 +1,5 @@
+import { isValidEmail } from "./email";
+
 export type LocalProfile = {
   username: string;
   email: string;
@@ -72,6 +74,9 @@ export function loadLocalProfile(): LocalProfile | null {
 }
 
 export function saveLocalProfile(profile: LocalProfile): void {
+  if (profile.email && !isValidEmail(profile.email)) {
+    throw new Error("Profile email must be a valid email address.");
+  }
   localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profile));
 }
 

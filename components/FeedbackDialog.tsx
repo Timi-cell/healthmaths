@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { ENDPOINT, enqueue, post } from "@/lib/outbox";
 import { track } from "@/lib/analytics";
+import { isValidEmail } from "@/lib/email";
 
 // Posts to our own /api/feedback route, which emails you through Resend.
 // If the phone is offline, the message is saved on the device and sent later (see lib/outbox.ts).
@@ -18,6 +19,7 @@ export default function FeedbackDialog({
   const [type, setType] = useState(TYPES[0]);
   const [msg, setMsg] = useState("");
   const [email, setEmail] = useState("");
+  const [emailError, setEmailError] = useState<string | null>(null);
   const [trap, setTrap] = useState(""); // honeypot: real users never fill this
   const [status, setStatus] = useState<
     "idle" | "sending" | "done" | "queued" | "error"
@@ -72,7 +74,13 @@ export default function FeedbackDialog({
   async function submit(e: FormEvent) {
     e.preventDefault();
     if (trap) return; // bot
-    const payload = { type, message: msg, email };
+    const normalizedEmail = email.trim();
+    if (normalizedEmail && !isValidEmail(normalizedEmail)) {
+      setEmailError("Please enter a valid email address.");
+      return;
+    }
+    setEmailError(null);
+    const payload = { type, message: msg, email: normalizedEmail };
     if (!navigator.onLine) {
       enqueue(payload);
       track("feedback_submitted");
@@ -160,13 +168,30 @@ export default function FeedbackDialog({
           </div>
           <div className="row">
             <input
-              type="email"
+              type="text"
+              inputMode="email"
               aria-label="Email (optional)"
+              autoComplete="email"
+              maxLength={254}
               placeholder="Email (optional, if you want a reply)"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value;
+                e.currentTarget.setCustomValidity(
+                  value.trim() && !isValidEmail(value.trim())
+                    ? "Enter a valid email address."
+                    : "",
+                );
+                setEmail(value);
+                setEmailError(null);
+              }}
             />
           </div>
+          {emailError && (
+            <p className="err" role="alert">
+              {emailError}
+            </p>
+          )}
           <input
             className="hp"
             tabIndex={-1}

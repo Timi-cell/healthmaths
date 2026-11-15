@@ -1,6 +1,7 @@
 // Runs on the server only, so the secret key never reaches the browser.
+import { isValidEmail } from "../../../lib/email";
+
 const TYPES = ["Request a formula", "Report a mistake", "General feedback"];
-const EMAIL_OK = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export async function POST(req: Request) {
   const key = process.env.RESEND_API_KEY;
@@ -29,7 +30,7 @@ export async function POST(req: Request) {
     !type ||
     message.length < 1 ||
     message.length > 2000 ||
-    (email && (email.length > 200 || !EMAIL_OK.test(email)))
+    (email && !isValidEmail(email))
   ) {
     return Response.json({ error: "Invalid input" }, { status: 400 });
   }
