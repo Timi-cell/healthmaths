@@ -1580,9 +1580,10 @@ footer {
   color: var(--muted);
   font-size: 0.84rem;
   display: flex;
-  gap: 16px;
-  flex-wrap: wrap;
-  justify-content: space-between;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  justify-content: flex-start;
 }
 .footer-links {
   display: flex;
