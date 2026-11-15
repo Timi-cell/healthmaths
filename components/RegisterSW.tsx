@@ -23,14 +23,30 @@ export default function RegisterSW() {
     if (document.documentElement.dataset.updateComplete === "true")
       showUpdatedToast();
     const on = (e: Event) => {
-      const detail = String((e as CustomEvent).detail);
-      setToast(detail);
+      const detail: unknown = (e as CustomEvent<unknown>).detail;
+      const message =
+        typeof detail === "object" &&
+        detail !== null &&
+        "message" in detail &&
+        typeof detail.message === "string"
+          ? detail.message
+          : String(detail);
+      const durationMs =
+        typeof detail === "object" &&
+        detail !== null &&
+        "durationMs" in detail &&
+        typeof detail.durationMs === "number" &&
+        Number.isFinite(detail.durationMs) &&
+        detail.durationMs > 0
+          ? detail.durationMs
+          : 4000;
+      setToast(message);
       if (toastTimeout.current !== null)
         window.clearTimeout(toastTimeout.current);
       toastTimeout.current = window.setTimeout(() => {
         setToast("");
         toastTimeout.current = null;
-      }, 4000);
+      }, durationMs);
     };
     addEventListener("healthmaths:toast", on);
     return () => {

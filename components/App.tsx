@@ -970,6 +970,12 @@ export default function App() {
         shareProfileData={shareProfileData}
         analyticsEnabled={analyticsConsent === true}
         onClose={() => setProfileOpen(false)}
+        onComplete={() => {
+          setProfileOpen(false);
+          setTab("all");
+          setOpen(false);
+          setQ("");
+        }}
         onSave={async (
           nextProfile,
           shareDetails,

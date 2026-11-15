@@ -11,6 +11,7 @@ type Props = {
   shareProfileData: boolean;
   analyticsEnabled: boolean;
   onClose: () => void;
+  onComplete: () => void;
   onSave: (
     profile: LocalProfile,
     shareDetails: boolean,
@@ -40,6 +41,7 @@ export default function ProfileDialog({
   shareProfileData,
   analyticsEnabled,
   onClose,
+  onComplete,
   onSave,
   onClear,
 }: Props) {
@@ -117,20 +119,28 @@ export default function ProfileDialog({
       const shareResult = await onSave(next, shareDetails);
       setDraft(next);
       setError(null);
-      setStatus(
-        shareDetails
-          ? {
-              sent: "Profile saved. The selected details were sent to PostHog; email was not shared.",
-              offline:
-                "Profile saved on this device. Details were not sent while offline and were not queued; save again when online to share them.",
-              "not-consented":
-                "Profile saved on this device. Analytics is off, so profile details were not sent.",
-              "not-configured":
-                "Profile saved on this device. PostHog is not configured in this build, so profile details were not sent.",
-              failed:
-                "Profile saved on this device, but PostHog could not receive the profile details. Please try again.",
-            }[shareResult]
-          : "Profile saved on this device.",
+      if (shareDetails && shareResult !== "sent") {
+        setStatus({
+          offline:
+            "Profile is saved on this device, but the selected details were not sent while offline. They were not queued; try saving again when online.",
+          "not-consented":
+            "Profile is saved on this device, but analytics is off, so the selected details were not sent.",
+          "not-configured":
+            "Profile is saved on this device, but PostHog is not configured in this build, so the selected details were not sent.",
+          failed:
+            "Profile is saved on this device, but PostHog could not receive the selected details. Try saving again.",
+          sent: "",
+        }[shareResult]);
+        return;
+      }
+      onComplete();
+      window.dispatchEvent(
+        new CustomEvent("healthmaths:toast", {
+          detail: {
+            message: "Profile saved, enjoy HealthMaths!",
+            durationMs: 3000,
+          },
+        }),
       );
     } catch {
       setError(
@@ -146,8 +156,16 @@ export default function ProfileDialog({
       setDraft(emptyProfile);
       setOtherInstitution("");
       setShareDetails(false);
-      setStatus("Your local profile has been cleared.");
       setError(null);
+      onComplete();
+      window.dispatchEvent(
+        new CustomEvent("healthmaths:toast", {
+          detail: {
+            message: "Your profile has been cleared",
+            durationMs: 3000,
+          },
+        }),
+      );
     } catch {
       setError(
         "We couldn't clear your profile in this browser. Check storage settings and try again.",
@@ -259,9 +277,7 @@ export default function ProfileDialog({
           </div>
         )}
         <div className="row">
-          <label htmlFor="profile-profession">
-            Profession/Course of study
-          </label>
+          <label htmlFor="profile-profession">Profession/Course of study</label>
           <input
             id="profile-profession"
             maxLength={120}
@@ -295,7 +311,8 @@ export default function ProfileDialog({
             <span>Share my profile details with HealthMaths</span>
           </label>
           <p>
-            If selected, each save sends your information (except your email) to HealthMaths.
+            If selected, each save sends your information (except your email) to
+            HealthMaths.
           </p>
           {!analyticsEnabled && (
             <p className="profile-share-note">
