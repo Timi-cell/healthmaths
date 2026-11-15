@@ -260,12 +260,12 @@ export default function ProfileDialog({
         )}
         <div className="row">
           <label htmlFor="profile-profession">
-            Profession or course of study
+            Profession/Course of study
           </label>
           <input
             id="profile-profession"
             maxLength={120}
-            placeholder="Enter your profession or course of study here..."
+            placeholder="Enter your profession/course of study..."
             value={draft.professionCourse}
             onChange={(event) => update("professionCourse", event.target.value)}
           />
