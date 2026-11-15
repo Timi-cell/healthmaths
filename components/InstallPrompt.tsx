@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { track } from "@/lib/analytics";
 
 type BIP = Event & { prompt: () => Promise<void> };
 type Snooze = { activeMs: number };
@@ -35,6 +36,7 @@ export default function InstallPrompt({ show }: { show: boolean }) {
   const [installed, setInstalled] = useState(false);
   const [permanentlyDismissed, setPermanentlyDismissed] = useState(false);
   const [snooze, setSnooze] = useState<Snooze | null>(null);
+  const [promptReported, setPromptReported] = useState(false);
 
   useEffect(() => {
     const standalone =
@@ -54,6 +56,7 @@ export default function InstallPrompt({ show }: { show: boolean }) {
       setEvt(e as BIP);
     };
     const onInstalled = () => {
+      track("pwa_installed");
       setInstalled(true);
       setPermanentlyDismissed(true);
       try {
@@ -94,6 +97,20 @@ export default function InstallPrompt({ show }: { show: boolean }) {
   const remindAgain =
     snooze !== null && snooze.activeMs >= REMINDER_DELAY;
 
+  const shouldShow =
+    show &&
+    !installed &&
+    !permanentlyDismissed &&
+    !(snooze && !remindAgain) &&
+    Boolean(evt || ios);
+  useEffect(() => {
+    if (shouldShow && !promptReported) {
+      track("pwa_install_prompt_shown");
+      setPromptReported(true);
+    }
+    if (!shouldShow) setPromptReported(false);
+  }, [shouldShow, promptReported]);
+
   useEffect(() => {
     if (!remindAgain) return;
     try {
@@ -104,14 +121,7 @@ export default function InstallPrompt({ show }: { show: boolean }) {
     setSnooze(null);
   }, [remindAgain]);
 
-  if (
-    !show ||
-    installed ||
-    permanentlyDismissed ||
-    (snooze && !remindAgain) ||
-    (!evt && !ios)
-  )
-    return null;
+  if (!shouldShow) return null;
   const dismiss = () => {
     const next = { activeMs: 0 };
     saveSnooze(next);

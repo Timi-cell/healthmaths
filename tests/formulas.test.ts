@@ -180,6 +180,18 @@ describe("formula maths", () => {
       154.2 / 18,
       5,
     ));
+  it("APRI normalizes AST to its laboratory upper limit before platelet adjustment", () =>
+    expect(run("apri", { ast: 80, uln: 40, platelets: 200 }).val).toBe(1));
+  it("Parkland estimate uses the entered TBSA percentage and reports the 8/16-hour split", () => {
+    const result = run("parkland", { weight: 70, tbsa: 30 });
+    expect(result.val).toBe(8400);
+    expect(result.steps).toContain(
+      "First half = 4200 mL over the first 8 hours from injury (525 mL per hour as an arithmetic estimate)",
+    );
+    expect(result.steps).toContain(
+      "Second half = 4200 mL over the following 16 hours (263 mL per hour as an arithmetic estimate)",
+    );
+  });
 });
 
 describe("unit conversions (base = value x factor)", () => {
@@ -197,8 +209,8 @@ describe("unit conversions (base = value x factor)", () => {
 });
 
 describe("registry integrity (catches mistakes when you add formulas)", () => {
-  it("contains the 55 established and 21 new formulas", () =>
-    expect(F).toHaveLength(76));
+  it("contains the 55 established, 21 prior additions and 2 verified additions", () =>
+    expect(F).toHaveLength(78));
   it("includes the intended formula additions", () => {
     expect(F.map((f) => f.id)).toEqual(
       expect.arrayContaining([
@@ -223,6 +235,8 @@ describe("registry integrity (catches mistakes when you add formulas)", () => {
         "urine-acr",
         "risk-reduction",
         "estimated-average-glucose",
+        "apri",
+        "parkland",
       ]),
     );
   });

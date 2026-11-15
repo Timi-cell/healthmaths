@@ -62,7 +62,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${ui.variable} ${display.variable}`}>
+    <html
+      lang="en"
+      className={`${ui.variable} ${display.variable}`}
+      suppressHydrationWarning
+    >
       <head>
         <script
           dangerouslySetInnerHTML={{

@@ -5,5 +5,6 @@ export type WhatsNewEntry = {
   date?: string;
 };
 
-// Add a uniquely identified entry here when a release has news to share.
+// Add a new, never-reused ID here before deploying a release with news.
+// The What's New indicator stays visible until each user clears all updates.
 export const WHATS_NEW: WhatsNewEntry[] = [];

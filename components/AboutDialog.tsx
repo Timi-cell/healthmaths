@@ -33,9 +33,8 @@ export default function AboutDialog({ open, onClose }: Props) {
       <p className="about-eyebrow">ABOUT HEALTHMATHS</p>
       <h3 id="about-title">Clear calculations. More confident care.</h3>
       <p className="about-lead">
-        For doctors, nurses, physiotherapists and other care teams, HealthMaths
-        makes commonly used healthcare formulas easier to find, understand and
-        work through. <br/> All accessible OFFLINE.
+        HealthMaths makes clinical formulas easier to find, understand and
+        work through. All OFFLINE.
       </p>
       {/* <div className="about-grid">
         <section>

@@ -10,6 +10,7 @@ import {
 import { HU, type Formula } from "@/lib/formulas";
 import { U, r } from "@/lib/units";
 import { formatResultForCopy } from "@/lib/share";
+import { track } from "@/lib/analytics";
 import Gauge from "./Gauge";
 import type { Entry } from "@/lib/store";
 
@@ -117,6 +118,33 @@ function useCount(to: number, dp: number) {
 }
 
 type Seed = { vals: Record<string, string>; units: Record<string, string> };
+type Draft = Seed;
+
+function readStringMap(value: unknown): Record<string, string> | null {
+  if (typeof value !== "object" || value === null || Array.isArray(value))
+    return null;
+  const result: Record<string, string> = {};
+  for (const [key, item] of Object.entries(value)) {
+    if (typeof item !== "string") return null;
+    result[key] = item;
+  }
+  return result;
+}
+
+function readDraft(value: unknown): Draft | null {
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    Array.isArray(value) ||
+    !("vals" in value) ||
+    !("units" in value)
+  )
+    return null;
+  const vals = readStringMap(value.vals);
+  const units = readStringMap(value.units);
+  return vals && units ? { vals, units } : null;
+}
+
 type Props = {
   f: Formula;
   theme: "light" | "dark";
@@ -128,10 +156,50 @@ type Props = {
 export default function Calculator({ f, theme, seed, onResult, onBack }: Props) {
   const [vals, setVals] = useState<Record<string, string>>(seed?.vals ?? {});
   const [units, setUnits] = useState<Record<string, string>>(seed?.units ?? {});
+  const [draftReady, setDraftReady] = useState(false);
   const [pick, setPick] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(Boolean(seed));
+  const calculationStarted = useRef(false);
+  const interpretationTracked = useRef(false);
+  const draftKey = `healthmaths:v1:draft:${f.id}`;
   const selectionOnly =
     f.in.length > 0 && f.in.every((input) => Boolean(input.o));
+
+  useEffect(() => {
+    if (seed) {
+      setDraftReady(true);
+      return;
+    }
+    try {
+      const saved = sessionStorage.getItem(draftKey);
+      if (saved) {
+        const draft = readDraft(JSON.parse(saved));
+        if (draft) {
+          setVals(draft.vals);
+          setUnits(draft.units);
+        }
+      }
+    } catch {
+      // Storage may be unavailable; the current calculator remains usable.
+    }
+    setDraftReady(true);
+  }, [draftKey, seed]);
+
+  useEffect(() => {
+    if (!draftReady || seed) return;
+    try {
+      if (Object.keys(vals).length === 0 && Object.keys(units).length === 0) {
+        sessionStorage.removeItem(draftKey);
+      } else {
+        sessionStorage.setItem(
+          draftKey,
+          JSON.stringify({ vals, units } satisfies Draft),
+        );
+      }
+    } catch {
+      // Storage may be unavailable; the current calculator remains usable.
+    }
+  }, [draftKey, draftReady, seed, units, vals]);
 
   // Read inputs -> convert to base units -> validate -> run the formula.
   const calc = useMemo(() => {
@@ -194,31 +262,69 @@ export default function Calculator({ f, theme, seed, onResult, onBack }: Props) 
 
   // Patient-value calculations are saved after input settles; option-only scores are explicit.
   useEffect(() => {
-    if (selectionOnly || !text || Object.keys(vals).length === 0) return;
+    if (
+      selectionOnly ||
+      !text ||
+      Object.keys(vals).length === 0 ||
+      !calculationStarted.current
+    )
+      return;
     const id = setTimeout(
-      () => onResult({ fid: f.id, n: f.n, t: text, vals, units }),
+      () => {
+        onResult({ fid: f.id, n: f.n, t: text, vals, units });
+        if (calculationStarted.current)
+          track("calculation_completed", {
+            formulaId: f.id,
+            category: f.systems?.[0] ?? f.s,
+          });
+      },
       1500,
     );
     return () => clearTimeout(id);
-  }, [selectionOnly, text, f.id, f.n, vals, units, onResult]);
+  }, [selectionOnly, text, f.id, f.n, f.s, f.systems, vals, units, onResult]);
 
   const reset = () => {
+    calculationStarted.current = false;
+    interpretationTracked.current = false;
     setVals({});
     setUnits({});
     setPick(null);
     setSubmitted(false);
   };
   const updateValue = (id: string, value: string) => {
+    if (value && !calculationStarted.current) {
+      track("calculation_started", {
+        formulaId: f.id,
+        category: f.systems?.[0] ?? f.s,
+      });
+      calculationStarted.current = true;
+    }
+    interpretationTracked.current = false;
     setVals((current) => ({ ...current, [id]: value }));
     setSubmitted(false);
   };
   const updateUnit = (id: string, unit: string) => {
+    interpretationTracked.current = false;
     setUnits((current) => ({ ...current, [id]: unit }));
     setSubmitted(false);
   };
+  useEffect(() => {
+    if (!res?.note || (selectionOnly && !submitted) || interpretationTracked.current)
+      return;
+    track("interpretation_viewed", {
+      formulaId: f.id,
+      category: f.systems?.[0] ?? f.s,
+    });
+    interpretationTracked.current = true;
+  }, [f.id, f.s, f.systems, res, selectionOnly, submitted]);
   const getResult = () => {
     if (!res || !text || submitted) return;
     onResult({ fid: f.id, n: f.n, t: text, vals, units });
+    if (calculationStarted.current)
+      track("calculation_completed", {
+        formulaId: f.id,
+        category: f.systems?.[0] ?? f.s,
+      });
     setSubmitted(true);
   };
   const notify = (message: string) =>
@@ -442,12 +548,11 @@ export default function Calculator({ f, theme, seed, onResult, onBack }: Props) 
                   ? f.more
                   : [
                       f.more ??
-                        `${f.d} This calculator applies the stated formula to the values entered. Check the source and limitations below before interpreting the result.`,
+                        `${f.d} This calculator applies the stated formula to the values entered. Check the limitation(s) below before interpreting the result.`,
                     ]
                 ).map((paragraph, index) => (
                   <p key={index}>{paragraph}</p>
                 ))}
-                <p className="src">Source: {f.src}</p>
                 {f.lim && <p className="src">Limitation: {f.lim}</p>}
               </div>
             </details>

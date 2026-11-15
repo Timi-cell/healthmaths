@@ -12,6 +12,7 @@ export default function WelcomeScreen() {
       delete root.dataset.introStart;
       delete root.dataset.updating;
       timeout.current = null;
+      window.dispatchEvent(new Event("healthmaths:intro-complete"));
       if (updated) {
         root.dataset.updateComplete = "true";
         window.dispatchEvent(new Event("healthmaths:update-complete"));

@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { ENDPOINT, enqueue, post } from "@/lib/outbox";
+import { track } from "@/lib/analytics";
 
 // Posts to our own /api/feedback route, which emails you through Resend.
 // If the phone is offline, the message is saved on the device and sent later (see lib/outbox.ts).
@@ -74,6 +75,8 @@ export default function FeedbackDialog({
     const payload = { type, message: msg, email };
     if (!navigator.onLine) {
       enqueue(payload);
+      track("feedback_submitted");
+      if (type === "Request a formula") track("formula_suggestion_submitted");
       setStatus("queued");
       setMsg("");
       return;
@@ -82,6 +85,8 @@ export default function FeedbackDialog({
     try {
       const res = await post(ENDPOINT, payload);
       if (!res.ok) throw new Error("http");
+      track("feedback_submitted");
+      if (type === "Request a formula") track("formula_suggestion_submitted");
       setStatus("done");
       setMsg("");
     } catch (err) {
@@ -178,8 +183,16 @@ export default function FeedbackDialog({
               className="btn"
               type="submit"
               disabled={status === "sending"}
+              aria-busy={status === "sending"}
             >
-              {status === "sending" ? "Sending…" : "Send"}
+              {status === "sending" ? (
+                <>
+                  <span className="button-spinner" aria-hidden="true" />
+                  Sending…
+                </>
+              ) : (
+                "Send"
+              )}
             </button>
             <button className="btn" type="button" onClick={onClose}>
               Cancel

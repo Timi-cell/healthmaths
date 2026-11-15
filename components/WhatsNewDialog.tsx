@@ -72,10 +72,16 @@ export default function WhatsNewDialog({
           <span className="updates-empty-icon" aria-hidden="true">✦</span>
           <h4>No new updates yet</h4>
           <p>
-            New formulas, improvements and fixes will appear here when they are
+            New formulas and features will appear here when they are
             released.
           </p>
         </div>
+      )}
+      {entries.length > 0 && (
+        <p className="updates-persistence">
+          Updates and the red indicator stay here until you choose Clear all.
+          New release notes will appear here after they are added to the app.
+        </p>
       )}
       {/* <section className="update-prompt" aria-label="Keep HealthMaths updated">
         <b>Keep HealthMaths up to date</b>

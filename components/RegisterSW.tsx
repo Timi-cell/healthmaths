@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { track } from "@/lib/analytics";
 
 export default function RegisterSW() {
   const [toast, setToast] = useState("");
@@ -48,11 +49,13 @@ export default function RegisterSW() {
       return;
     let reloading = false;
     let wantsUpdate = false;
+    let reportedWaiting = false;
     let disposed = false;
     let cleanupRegistrationListeners = () => {};
     const sw = navigator.serviceWorker;
     const onControllerChange = () => {
       if (wantsUpdate && !reloading) {
+        track("update_applied");
         reloading = true;
         try {
           sessionStorage.setItem("healthmaths:update-reload-pending", "true");
@@ -75,11 +78,19 @@ export default function RegisterSW() {
         };
 
         // A new version has downloaded and is waiting for the user's go-ahead.
-        if (reg.waiting && sw.controller) setWaiting(reg.waiting);
+        const showWaitingUpdate = (worker: ServiceWorker) => {
+          setWaiting(worker);
+          if (!reportedWaiting) {
+            track("update_available");
+            reportedWaiting = true;
+          }
+        };
+        if (reg.waiting && sw.controller) showWaitingUpdate(reg.waiting);
         const onUpdateFound = () => {
           const w = reg.installing;
           w?.addEventListener("statechange", () => {
-            if (w.state === "installed" && sw.controller) setWaiting(w);
+            if (w.state === "installed" && sw.controller)
+              showWaitingUpdate(w);
           });
         };
         reg.addEventListener("updatefound", onUpdateFound);

@@ -343,6 +343,36 @@ export const F: Formula[] = [
     },
   },
   {
+    id: "parkland",
+    n: "Parkland burn fluid estimate",
+    al: "parkland formula burns resuscitation crystalloid total body surface area TBSA",
+    s: "Integumentary",
+    d: "Estimates the traditional first-24-hour crystalloid volume from body weight and burn size.",
+    src: "Baxter CR, Shires T. Physiological response to crystalloid resuscitation of severe burns. Ann N Y Acad Sci. 1968;150(3):874–894. doi:10.1111/j.1749-6632.1968.tb14738.x",
+    lim: "This historical estimate is not a fluid prescription. Use current burn-service/local guidance and titrate to clinical endpoints. Count the first 8 hours from the time of injury; children and special burn populations may need additional or different management.",
+    in: [
+      { id: "weight", l: "Body weight", d: "mass", min: 1, max: 500 },
+      { id: "tbsa", l: "Burn size (% total body surface area)", d: "pct", min: 1, max: 100 },
+    ],
+    out: "vol",
+    dg: 0,
+    math: { label: "Traditional Parkland estimate", rhs: "4 mL × body weight (kg) × burn size (%TBSA)" },
+    departments: ["Burns", "Emergency Medicine", "Surgery"],
+    f: (v) => {
+      const total = 4 * v.weight * v.tbsa;
+      const half = total / 2;
+      return {
+        val: total,
+        steps: [
+          `First-24-hour estimate = 4 × ${r(v.weight, 1)} kg × ${r(v.tbsa, 1)} = ${r(total, 0)} mL`,
+          `First half = ${r(half, 0)} mL over the first 8 hours from injury (${r(half / 8, 0)} mL per hour as an arithmetic estimate)`,
+          `Second half = ${r(half, 0)} mL over the following 16 hours (${r(half / 16, 0)} mL per hour as an arithmetic estimate)`,
+        ],
+        note: "High-risk estimate: use a current burn protocol and clinical reassessment; do not use the calculated rates as an automatic order.",
+      };
+    },
+  },
+  {
     id: "pky",
     n: "Pack-Years (smoking)",
     al: "pack year pack-years smoking tobacco cigarettes copd lung cancer screening",
@@ -1400,6 +1430,36 @@ export const F: Formula[] = [
     },
   },
   {
+    id: "apri",
+    n: "AST-to-platelet ratio index (APRI)",
+    al: "APRI AST platelet ratio index liver fibrosis cirrhosis hepatitis",
+    s: "Gastrointestinal",
+    d: "Calculates a non-invasive index from AST relative to its upper limit of normal and the platelet count.",
+    src: "Wai CT et al. A simple noninvasive index can predict both significant fibrosis and cirrhosis in patients with chronic hepatitis C. Hepatology. 2003;38(2):518–526. doi:10.1053/jhep.2003.50346",
+    lim: "Developed and validated primarily in chronic hepatitis C; accuracy and decision thresholds vary by disease and population. Use the laboratory-specific AST upper limit and interpret with other clinical data; APRI is not a diagnosis.",
+    in: [
+      { id: "ast", l: "AST", d: "ast", min: 0, max: 2000 },
+      { id: "uln", l: "AST upper limit of normal", d: "ast", min: 1, max: 1000 },
+      { id: "platelets", l: "Platelet count", d: "wbc", min: 1, max: 2000, u: "×10⁹/L" },
+    ],
+    out: "ratioIndex",
+    dg: 2,
+    math: { label: "APRI", numerator: "(AST ÷ AST upper limit of normal) × 100", denominator: "Platelet count (×10⁹/L)" },
+    departments: ["Gastroenterology", "Medicine"],
+    f: (v) => {
+      const normalizedAst = v.ast / v.uln;
+      const value = normalizedAst * 100 / v.platelets;
+      return {
+        val: value,
+        steps: [
+          `AST relative to upper limit = ${r(v.ast, 1)} U per L ÷ ${r(v.uln, 1)} U per L = ${r(normalizedAst, 3)}`,
+          `APRI = (${r(normalizedAst, 3)} × 100) ÷ ${r(v.platelets, 1)} = ${r(value, 2)}`,
+        ],
+        note: "Interpret using disease-specific evidence and local guidance; no universal cut-off applies.",
+      };
+    },
+  },
+  {
     id: "apgar",
     n: "Apgar score",
     al: "apgar newborn neonatal appearance pulse grimace activity respiration",
@@ -1793,6 +1853,7 @@ export const IC: Record<string, string> = {
   Rehabilitation: "scale",
   Haematology: "droplet",
   Ophthalmology: "target",
+  Integumentary: "scale",
 };
 export const HU: Record<string, number> = {
   General: 220,
@@ -1807,6 +1868,7 @@ export const HU: Record<string, number> = {
   Rehabilitation: 195,
   Haematology: 280,
   Ophthalmology: 195,
+  Integumentary: 35,
 };
 
 // Merge the cardiology pack (lib/cardio.ts)
@@ -1892,6 +1954,8 @@ const departmentsByFormula: Record<string, string[]> = {
   "urine-acr": ["Nephrology", "Medicine", "Primary Care", "Endocrinology"],
   "risk-reduction": ["Medicine", "Primary Care", "Public Health"],
   "estimated-average-glucose": ["Endocrinology", "Medicine", "Primary Care"],
+  parkland: ["Burns", "Emergency Medicine", "Surgery"],
+  apri: ["Gastroenterology", "Medicine"],
   pp: ["Cardiology", "Emergency Medicine", "Intensive Care"],
   si: ["Cardiology", "Emergency Medicine", "Intensive Care"],
   sv: ["Cardiology", "Anaesthesia", "Intensive Care"],

@@ -14,11 +14,30 @@ import Calculator from "./Calculator";
 import FeedbackDialog from "./FeedbackDialog";
 import Icon from "./Icon";
 import InstallPrompt from "./InstallPrompt";
+import ProfileDialog from "./ProfileDialog";
+import type { ProfileShareResult } from "./ProfileDialog";
 import SystemSheet from "./SystemSheet";
 import WhatsNewDialog from "./WhatsNewDialog";
 import type { CategoryMode } from "./SystemSheet";
 import { WHATS_NEW } from "@/lib/whats-new";
+import {
+  clearLocalProfile,
+  getProfileDataConsent,
+  loadLocalProfile,
+  setProfileDataConsent,
+  saveLocalProfile,
+  type LocalProfile,
+} from "@/lib/profile";
 import { ENDPOINT, flush } from "@/lib/outbox";
+import {
+  flushAnalytics,
+  getAnalyticsConsent,
+  initializeAnalyticsConsent,
+  isAnalyticsConfigured,
+  sendProfileDetailsToPostHog,
+  setAnalyticsConsent,
+  track,
+} from "@/lib/analytics";
 import {
   KEYS,
   addEntry,
@@ -71,6 +90,11 @@ export default function App() {
   });
   const [ready, setReady] = useState(false);
   const [online, setOnline] = useState(true);
+  const [analyticsConsent, setAnalyticsConsentState] = useState<boolean | null>(
+    null,
+  );
+  const [introComplete, setIntroComplete] = useState(false);
+  const [privacyChoicesOpen, setPrivacyChoicesOpen] = useState(false);
   const [seed, setSeed] = useState<{
     key: number;
     vals: Record<string, string>;
@@ -78,6 +102,12 @@ export default function App() {
   } | null>(null);
   const [fb, setFb] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [profile, setProfile] = useState<LocalProfile | null>(null);
+  const [shareProfileData, setShareProfileData] = useState(false);
+  const [profileStorageError, setProfileStorageError] = useState<string | null>(
+    null,
+  );
   const [sheet, setSheet] = useState(false);
   const [whatsNewOpen, setWhatsNewOpen] = useState(false);
   const [animatedTab, setAnimatedTab] = useState<Tab | null>(null);
@@ -87,6 +117,9 @@ export default function App() {
   const search = useRef<HTMLInputElement>(null);
   const calculator = useRef<HTMLDivElement>(null);
   const deleteDialog = useRef<HTMLDialogElement>(null);
+  const privacyDialog = useRef<HTMLDialogElement>(null);
+  const appOpened = useRef(false);
+  const previousOnline = useRef<boolean | null>(null);
 
   const visibleUpdates = WHATS_NEW.filter(
     (item) => !whatsNew.dismissed.includes(item.id),
@@ -132,8 +165,47 @@ export default function App() {
     setHist(load<Entry[]>(KEYS.history, []));
     setUsed(load<Used>(KEYS.used, {}));
     setWhatsNew(load<WhatsNewState>(KEYS.whatsNew, { read: [], dismissed: [] }));
+    try {
+      setProfile(loadLocalProfile());
+    } catch {
+      setProfileStorageError(
+        "Your saved profile could not be read from this browser.",
+      );
+    }
     setReady(true);
   }, []);
+  useEffect(() => {
+    const finishIntro = () => setIntroComplete(true);
+    if (document.documentElement.dataset.showIntro !== "true") {
+      finishIntro();
+      return;
+    }
+    window.addEventListener("healthmaths:intro-complete", finishIntro);
+    return () =>
+      window.removeEventListener("healthmaths:intro-complete", finishIntro);
+  }, []);
+  useEffect(() => {
+    if (!ready || !introComplete) return;
+    const savedConsent = getAnalyticsConsent();
+    const consent = initializeAnalyticsConsent();
+    if (savedConsent === null) setPrivacyChoicesOpen(true);
+    setAnalyticsConsentState(consent);
+    try {
+      const profileSharing = getProfileDataConsent();
+      if (consent !== true && profileSharing) {
+        setProfileDataConsent(false);
+        setShareProfileData(false);
+      } else {
+        setShareProfileData(profileSharing);
+      }
+    } catch {
+      setShareProfileData(false);
+    }
+    if (consent === true && !appOpened.current) {
+      track("app_opened");
+      appOpened.current = true;
+    }
+  }, [ready, introComplete]);
   useEffect(() => {
     const savedTheme = load<"light" | "dark">(KEYS.theme, "light");
     setTheme(savedTheme === "dark" ? "dark" : "light");
@@ -155,6 +227,12 @@ export default function App() {
     if (pendingDeletion && !dialog.open) dialog.showModal();
     if (!pendingDeletion && dialog.open) dialog.close();
   }, [pendingDeletion]);
+  useEffect(() => {
+    const dialog = privacyDialog.current;
+    if (!dialog) return;
+    if (privacyChoicesOpen && !dialog.open) dialog.showModal();
+    if (!privacyChoicesOpen && dialog.open) dialog.close();
+  }, [privacyChoicesOpen]);
 
   const confirmDeletion = () => {
     if (!pendingDeletion) return;
@@ -186,6 +264,10 @@ export default function App() {
       const id = new URL(window.location.href).searchParams.get("f");
       const formula = F.find((item) => item.id === id);
       if (formula) {
+        track("formula_viewed", {
+          formulaId: formula.id,
+          category: formula.systems?.[0] ?? formula.s,
+        });
         setCur(formula);
         setSeed(null);
         setTab("all");
@@ -207,6 +289,7 @@ export default function App() {
     const sync = async () => {
       update();
       if (!navigator.onLine) return;
+      void flushAnalytics();
       const feedbackSent = await flush(ENDPOINT);
       if (feedbackSent > 0)
         window.dispatchEvent(
@@ -223,6 +306,24 @@ export default function App() {
       removeEventListener("offline", update);
     };
   }, []);
+  useEffect(() => {
+    if (!q.trim()) return;
+    const timeout = window.setTimeout(() => {
+      const metadata = {
+        resultCount: shown.length,
+        ...(category !== "All" ? { category } : {}),
+      };
+      track("formula_searched", metadata);
+      if (shown.length === 0) track("search_no_results", metadata);
+    }, 500);
+    return () => window.clearTimeout(timeout);
+  }, [q, shown, category]);
+  useEffect(() => {
+    if (previousOnline.current === false && online)
+      track("online_mode_entered");
+    if (!online) track("offline_mode_entered");
+    previousOnline.current = online;
+  }, [online]);
 
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
@@ -263,6 +364,10 @@ export default function App() {
     else window.history.pushState(window.history.state, "", address);
   };
   const openFormula = (f: Formula) => {
+    track("formula_viewed", {
+      formulaId: f.id,
+      category: f.systems?.[0] ?? f.s,
+    });
     setCur(f);
     setSeed(null);
     setOpen(true);
@@ -272,6 +377,10 @@ export default function App() {
   const openEntry = (e: Entry) => {
     const f = F.find((x) => x.id === e.fid);
     if (!f) return;
+    track("formula_viewed", {
+      formulaId: f.id,
+      category: f.systems?.[0] ?? f.s,
+    });
     setCur(f);
     setSeed({ key: e.at, vals: e.vals, units: e.units });
     setOpen(true);
@@ -279,6 +388,7 @@ export default function App() {
     revealCalculator();
   };
   const goTab = (t: Tab) => {
+    if (t === "history") track("history_viewed");
     setTab(t);
     setOpen(false);
     setAnimatedTab(t === "whatsNew" ? null : t);
@@ -327,11 +437,62 @@ export default function App() {
       ],
     }));
   };
-  const toggleTheme = () => {
+  const toggleTheme = (event: MouseEvent<HTMLButtonElement>) => {
     const next = theme === "light" ? "dark" : "light";
-    setTheme(next);
-    document.documentElement.dataset.theme = next;
-    save(KEYS.theme, next);
+    track("theme_changed", { theme: next });
+    const root = document.documentElement;
+    root.style.setProperty(
+      "--theme-x",
+      `${event.clientX || window.innerWidth / 2}px`,
+    );
+    root.style.setProperty(
+      "--theme-y",
+      `${event.clientY || window.innerHeight / 2}px`,
+    );
+    const applyTheme = () => {
+      setTheme(next);
+      root.dataset.theme = next;
+      save(KEYS.theme, next);
+    };
+    const transitionDocument = document as Document & {
+      startViewTransition?: (callback: () => void) => {
+        finished: Promise<void>;
+      };
+    };
+    const prefersReducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+    if (!prefersReducedMotion && transitionDocument.startViewTransition) {
+      const transition = transitionDocument.startViewTransition(applyTheme);
+      const clearOrigin = () => {
+        root.style.removeProperty("--theme-x");
+        root.style.removeProperty("--theme-y");
+      };
+      void transition.finished.then(clearOrigin, clearOrigin);
+    } else {
+      applyTheme();
+      root.style.removeProperty("--theme-x");
+      root.style.removeProperty("--theme-y");
+    }
+  };
+  const chooseAnalytics = (enabled: boolean) => {
+    if (enabled && !isAnalyticsConfigured()) return;
+    if (!setAnalyticsConsent(enabled)) {
+      window.dispatchEvent(
+        new CustomEvent("healthmaths:toast", {
+          detail: "Your privacy choice could not be saved in this browser.",
+        }),
+      );
+      return;
+    }
+    setAnalyticsConsentState(enabled);
+    if (!enabled) setShareProfileData(false);
+    setPrivacyChoicesOpen(false);
+    if (enabled && !appOpened.current) {
+      track("app_opened");
+      appOpened.current = true;
+    }
+    if (enabled && !online) track("offline_mode_entered");
   };
   const spot = (e: MouseEvent<HTMLButtonElement>) => {
     const c = e.currentTarget.getBoundingClientRect();
@@ -346,11 +507,11 @@ export default function App() {
         <span className="whats-new-label">
           What&apos;s{" "}
           <span className="new-word">
-            New{unreadUpdates > 0 && <i className="update-dot" aria-hidden="true" />}
+            New{visibleUpdates.length > 0 && <i className="update-dot" aria-hidden="true" />}
           </span>
-          {unreadUpdates > 0 && (
+          {visibleUpdates.length > 0 && (
             <span className="visually-hidden">
-              , {unreadUpdates} unread update{unreadUpdates === 1 ? "" : "s"}
+              , {visibleUpdates.length} update{visibleUpdates.length === 1 ? "" : "s"} available; clear all to dismiss
             </span>
           )}
         </span>
@@ -399,7 +560,6 @@ export default function App() {
         };
     }
   })();
-
   // A plain render function (not a nested component) so buttons keep their state between renders.
   const formulaKey = (f: Formula, sub?: string, compact?: boolean) =>
     `${f.id}:${sub ?? "main"}:${compact ? "compact" : "full"}`;
@@ -435,32 +595,60 @@ export default function App() {
           </div>
           <div className="topr">
             <span
-              className={`pill${online ? " online" : ""}`}
+              className={`connection-status ${online ? "online" : "offline"}`}
               role="status"
               aria-live="polite"
-            >
-              {online ? "Online" : "Offline"}
-            </span>
+              aria-label={online ? "Online" : "Offline"}
+              title={online ? "Online" : "Offline"}
+            />
             {/* <span className="pill">v1.0</span> */}
+            <div className="profile-anchor">
+              <button
+                className="profile-trigger"
+                type="button"
+                onClick={() => {
+                  track("profile_opened");
+                  setProfileOpen(true);
+                }}
+                aria-label={
+                  profile?.username
+                    ? `Open profile for ${profile.username}`
+                    : "Open profile"
+                }
+                aria-haspopup="dialog"
+                title="Profile"
+              >
+                <Icon name="profile" />
+              </button>
+              {profile?.username && (
+                <span className="profile-greeting" aria-hidden="true">
+                  Hi, {profile.username}.
+                </span>
+              )}
+            </div>
             <button
               className="tg"
+              type="button"
               onClick={toggleTheme}
               aria-label={`Switch to ${theme === "light" ? "dark" : "light"} theme`}
               title={`Switch to ${theme === "light" ? "dark" : "light"} theme`}
             >
-              <Icon name={theme === "light" ? "moon" : "sun"} />
+              <Icon
+                key={theme}
+                name={theme === "light" ? "moon" : "sun"}
+              />
               {/* <span>Theme</span> */}
             </button>
           </div>
         </div>
         <div className="hero">
-          <button
+          {/* <button
             className="about-trigger"
             onClick={() => setAboutOpen(true)}
             aria-haspopup="dialog"
           >
-            About HealthMaths
-          </button>
+            Why HealthMaths?
+          </button> */}
           <h1>
             Maths in Healthcare,
             <br />
@@ -532,7 +720,11 @@ export default function App() {
                   e.currentTarget.focus();
                 }
               }}
-              placeholder="Hi, what formula?..."
+              placeholder={
+                profile?.username
+                  ? `Hi, ${profile.username}. What formula?...`
+                  : "Hi, what formula?..."
+              }
               aria-label="Search formulas"
               autoComplete="off"
             />
@@ -590,7 +782,6 @@ export default function App() {
           <strong>{category}</strong>
         </div>
       )} */}
-
       <main>
         <div className="left">
           <InstallPrompt show={hist.length > 0} />
@@ -623,7 +814,7 @@ export default function App() {
                 shown.map((f) => formulaBtn(f))
               ) : (
                 <div className="empty">
-                  No formula found. Try another word or request for the formula using the "Send Feedback" button.
+                  Formula not found! <br/> <br /> Try another word or request for the formula by clicking the "Send Feedback" button. We'll add it promptly.
                 </div>
               ))}
             {tab === "used" &&
@@ -734,6 +925,29 @@ export default function App() {
           For education and decision support only. HealthMaths does not replace
           clinical judgment. Always check results against your local protocol.
         </span>
+        {process.env.NEXT_PUBLIC_X_URL && (
+          <a
+            className="x-follow"
+            href={process.env.NEXT_PUBLIC_X_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                fill="currentColor"
+                d="M18.9 1.15h3.68l-8.04 9.2L24 22.85h-7.41l-5.8-7.57-6.64 7.57H.47l8.6-9.83L0 1.15h7.59l5.24 6.93zm-1.29 19.66h2.04L6.49 3.08H4.3z"
+              />
+            </svg>
+            Follow us on X
+          </a>
+        )}
+        <button
+          className="linkbtn"
+          type="button"
+          onClick={() => setPrivacyChoicesOpen(true)}
+        >
+          Privacy choices
+        </button>
         {/* <button className="linkbtn" onClick={() => setFb(true)}>
           Request a formula or send feedback
         </button> */}
@@ -747,6 +961,116 @@ export default function App() {
         Send feedback
       </button>
       <FeedbackDialog open={fb} onClose={() => setFb(false)} />
+      <ProfileDialog
+        open={profileOpen}
+        profile={profile}
+        storageError={profileStorageError}
+        shareProfileData={shareProfileData}
+        analyticsEnabled={analyticsConsent === true}
+        onClose={() => setProfileOpen(false)}
+        onSave={async (
+          nextProfile,
+          shareDetails,
+        ): Promise<ProfileShareResult> => {
+          saveLocalProfile(nextProfile);
+          setProfileDataConsent(shareDetails);
+          setProfile(nextProfile);
+          setShareProfileData(shareDetails);
+          setProfileStorageError(null);
+          track("profile_saved");
+          return shareDetails
+            ? sendProfileDetailsToPostHog(nextProfile)
+            : "not-consented";
+        }}
+        onClear={() => {
+          clearLocalProfile();
+          setProfile(null);
+          setShareProfileData(false);
+          setProfileStorageError(null);
+        }}
+      />
+      <dialog
+        ref={privacyDialog}
+        className="privacy-dialog"
+        aria-labelledby="analytics-consent-title"
+        aria-describedby="analytics-consent-description"
+        onClose={() => setPrivacyChoicesOpen(false)}
+        onClick={(event) => {
+          if (event.target === event.currentTarget)
+            setPrivacyChoicesOpen(false);
+        }}
+      >
+        <div className="privacy-dialog-heading">
+          <span className="privacy-mark" aria-hidden="true">
+            +
+          </span>
+          <button
+            className="dialog-close"
+            type="button"
+            aria-label="Close privacy choices"
+            onClick={() => setPrivacyChoicesOpen(false)}
+          >
+            <Icon name="close" />
+          </button>
+        </div>
+        {/* <span className="eyebrow">Your choice, your control</span> */}
+        <h2 id="analytics-consent-title">Analytics are on by default</h2>
+        <p id="analytics-consent-description" className="privacy-lead">
+          HealthMaths uses limited usage events to understand which formulas
+          and features are useful. You can turn analytics off now or any time
+          in Privacy choices.
+        </p>
+        {/* <div className="privacy-choice-card">
+          <strong>What is collected</strong>
+          <p>
+            Event names, formula IDs/categories, search result counts, and
+            general device and online/offline status.
+          </p>
+          <p>
+            Profile details are shared only if you separately enable profile
+            sharing.
+          </p>
+        </div>
+        <div className="privacy-choice-card privacy-choice-no">
+          <strong>Turn analytics off</strong>
+          <p>
+            This stops future events and clears unsent events on this device.
+          </p>
+        </div> */}
+        {!isAnalyticsConfigured() && (
+          <p className="privacy-config-note" role="status">
+            Analytics is not connected in this app build yet, so nothing can
+            be sent. It will be available soon.
+             {/* It will be available after the PostHog project settings
+            are configured and the app is redeployed. */}
+          </p>
+        )}
+        {analyticsConsent !== null && (
+          <p className="privacy-status" role="status">
+            Current choice: {analyticsConsent ? "Analytics On" : "Analytics Off"}.
+          </p>
+        )}
+        <div className="privacy-dialog-actions">
+          <button
+            className="btn primary"
+            type="button"
+            disabled={!isAnalyticsConfigured()}
+            onClick={() => chooseAnalytics(true)}
+          >
+            Keep analytics on
+          </button>
+          <button
+            className="btn"
+            type="button"
+            onClick={() => chooseAnalytics(false)}
+          >
+            Turn analytics off
+          </button>
+        </div>
+        <p className="privacy-footnote">
+          You can change this at any time using Privacy Choices in the footer.
+        </p>
+      </dialog>
       <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} />
       <WhatsNewDialog
         open={whatsNewOpen}
@@ -798,6 +1122,7 @@ export default function App() {
           setTab("all");
         }}
         onPickCategory={(item) => {
+          if (category !== item) track("category_selected", { category: item });
           setCategory(item);
           setTab("all");
           setSheet(false);

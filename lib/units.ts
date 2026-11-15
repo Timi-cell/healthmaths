@@ -42,6 +42,7 @@ export const U: Record<string, Record<string, number>> = {
   urineCreatinine: { "mmol/L": 1 },
   acr: { "mg/mmol": 1, "mg/g": 1 / 8.84 },
   ratioIndex: { ratio: 1 },
+  ast: { "U/L": 1 },
 };
 
 export const r = (x: number, d = 1): string =>
