@@ -242,6 +242,7 @@ export default function ProfileDialog({
             type="text"
             inputMode="email"
             autoComplete="email"
+            required
             maxLength={254}
             placeholder="Enter your email here..."
             value={draft.email}
@@ -261,6 +262,7 @@ export default function ProfileDialog({
           <select
             id="profile-institution"
             value={institutionChoice}
+            required
             onChange={(event) => {
               update("institution", event.target.value);
               if (event.target.value !== "Other") setOtherInstitution("");
@@ -298,6 +300,7 @@ export default function ProfileDialog({
             id="profile-profession"
             maxLength={120}
             placeholder="Enter your profession/course of study..."
+            required
             value={draft.professionCourse}
             onChange={(event) => update("professionCourse", event.target.value)}
           />
@@ -307,6 +310,7 @@ export default function ProfileDialog({
           <input
             id="profile-level"
             maxLength={80}
+                        required
             placeholder="Enter your student level here..."
             value={draft.studentLevel}
             onChange={(event) => update("studentLevel", event.target.value)}
@@ -317,6 +321,7 @@ export default function ProfileDialog({
             <input
               type="checkbox"
               checked={shareDetails}
+                          required
               disabled={!analyticsEnabled}
               onChange={(event) => {
                 setShareDetails(event.target.checked);

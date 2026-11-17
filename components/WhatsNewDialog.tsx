@@ -50,7 +50,7 @@ export default function WhatsNewDialog({
     >
       <div className="whats-new-heading">
         <div>
-          <span className="eyebrow">HealthMaths updates</span>
+          {/* <span className="eyebrow">HealthMaths updates</span> */}
           <h3 id="whats-new-title">What&apos;s New?</h3>
         </div>
         <button

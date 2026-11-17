@@ -122,6 +122,8 @@ export default function App() {
     useState<PendingDeletion | null>(null);
   const search = useRef<HTMLInputElement>(null);
   const calculator = useRef<HTMLDivElement>(null);
+  const formulaListScroll = useRef<number | null>(null);
+  const restoreFormulaListScroll = useRef<number | null>(null);
   const deleteDialog = useRef<HTMLDialogElement>(null);
   const privacyDialog = useRef<HTMLDialogElement>(null);
   const appOpened = useRef(false);
@@ -131,6 +133,7 @@ export default function App() {
   const visibleUpdates = WHATS_NEW.filter(
     (item) => !whatsNew.dismissed.includes(item.id),
   );
+  const greetingName = profile?.username.trim() ?? "";
   const unreadUpdateIds = visibleUpdates
     .filter((item) => !whatsNew.read.includes(item.id))
     .map((item) => item.id);
@@ -294,6 +297,8 @@ export default function App() {
         setTab("all");
         setOpen(true);
       } else {
+        restoreFormulaListScroll.current = formulaListScroll.current;
+        formulaListScroll.current = null;
         setSeed(null);
         setTab("all");
         setOpen(false);
@@ -358,6 +363,26 @@ export default function App() {
     return () => removeEventListener("keydown", k);
   }, []);
 
+  useEffect(() => {
+    const scrollTop = restoreFormulaListScroll.current;
+    if (scrollTop === null || open || tab !== "all") return;
+    restoreFormulaListScroll.current = null;
+    let restoreFrame = 0;
+    const frame = window.requestAnimationFrame(() => {
+      restoreFrame = window.requestAnimationFrame(() => {
+        if (document.scrollingElement) {
+          document.scrollingElement.scrollTop = scrollTop;
+        } else {
+          window.scrollTo(0, scrollTop);
+        }
+      });
+    });
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.cancelAnimationFrame(restoreFrame);
+    };
+  }, [open, tab]);
+
   const onResult = useCallback((e: Omit<Entry, "id" | "at">) => {
     const at = Date.now();
     setHist((h) => addEntry(h, { ...e, id: `${at}-${e.fid}`, at }));
@@ -389,6 +414,8 @@ export default function App() {
     save(KEYS.formulaOpened, true);
   };
   const openFormula = (f: Formula) => {
+    formulaListScroll.current =
+      document.scrollingElement?.scrollTop ?? window.scrollY;
     markFormulaOpened();
     track("formula_viewed", {
       formulaId: f.id,
@@ -403,6 +430,8 @@ export default function App() {
   const openEntry = (e: Entry) => {
     const f = F.find((x) => x.id === e.fid);
     if (!f) return;
+    formulaListScroll.current =
+      document.scrollingElement?.scrollTop ?? window.scrollY;
     markFormulaOpened();
     track("formula_viewed", {
       formulaId: f.id,
@@ -429,6 +458,8 @@ export default function App() {
     }
   };
   const backToFormulas = () => {
+    restoreFormulaListScroll.current = formulaListScroll.current;
+    formulaListScroll.current = null;
     setTab("all");
     setOpen(false);
     setWhatsNewOpen(false);
@@ -621,10 +652,17 @@ export default function App() {
 
   return (
     <div className={`shell${open ? " open" : ""}`}>
-      <header>
+      <header className={greetingName ? "header-with-greeting" : undefined}>
         <div className="top">
           <div className="logo">
-            <span className="mark">+</span>HealthMaths
+            <img
+              className="logo-mark"
+              src="/icon-192.png"
+              width={36}
+              height={36}
+              alt=""
+            />
+            HealthMaths
           </div>
           <div className="topr">
             <span
@@ -635,7 +673,9 @@ export default function App() {
               title={online ? "Online" : "Offline"}
             />
             {/* <span className="pill">v1.0</span> */}
-            <div className="profile-anchor">
+            <div
+              className={`profile-anchor${greetingName ? " has-greeting" : ""}`}
+            >
               <button
                 className="profile-trigger"
                 type="button"
@@ -654,9 +694,9 @@ export default function App() {
                 <Icon name="profile" />
                 {!profile?.username && <span>Profile</span>}
               </button>
-              {profile?.username && (
+              {greetingName && (
                 <span className="profile-greeting" aria-hidden="true">
-                  Hi, {profile.username}.
+                  Hi, {greetingName}
                 </span>
               )}
             </div>
@@ -781,7 +821,7 @@ export default function App() {
         </div>
       </div>
       <div
-        className="wrap category-toolbar"
+        className={`wrap category-toolbar${tab !== "all" ? " category-toolbar-hidden" : ""}`}
         role="group"
         aria-label="Browse by body system or department"
       >
@@ -789,7 +829,7 @@ export default function App() {
           <button
             key={mode}
             className={`category-mode${categoryMode === mode && category !== "All" ? " category-selected" : ""}`}
-            aria-pressed={categoryMode === mode}
+            aria-pressed={categoryMode === mode && category !== "All"}
             aria-label={`${label}${categoryMode === mode && category !== "All" ? `: ${category}` : ""}`}
             onClick={() => {
               if (categoryMode !== mode) setCategory("All");
@@ -1043,9 +1083,15 @@ export default function App() {
         }}
       >
         <div className="privacy-dialog-heading">
-          <span className="privacy-mark" aria-hidden="true">
-            +
-          </span>
+       <div className="logo">
+            <img
+              className="logo-mark"
+              src="/icon-192.png"
+              width={36}
+              height={36}
+              alt=""
+            />
+          </div>
           <button
             className="dialog-close"
             type="button"

@@ -29,10 +29,14 @@ export default function SystemSheet({
   onPickCategory,
 }: Props) {
   const ref = useRef<HTMLDialogElement>(null);
+  const titleRef = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
     const dialog = ref.current;
     if (!dialog) return;
-    if (open && !dialog.open) dialog.showModal();
+    if (open && !dialog.open) {
+      dialog.showModal();
+      titleRef.current?.focus({ preventScroll: true });
+    }
     if (!open && dialog.open) dialog.close();
   }, [open]);
 
@@ -46,7 +50,9 @@ export default function SystemSheet({
         if (event.target === event.currentTarget) onClose();
       }}
     >
-      <h3 id="library-dialog-title">Browse the library</h3>
+      <h3 ref={titleRef} id="library-dialog-title" tabIndex={-1}>
+        Browse the library
+      </h3>
       <div className="category-modes" role="tablist" aria-label="Browse by">
         {MODES.map(([value, label]) => (
           <button
@@ -60,7 +66,12 @@ export default function SystemSheet({
           </button>
         ))}
       </div>
-      <div className="sgrid" role="group" aria-label={MODES.find(([value]) => value === mode)?.[1]}>
+      <div
+        key={mode}
+        className="sgrid"
+        role="group"
+        aria-label={MODES.find(([value]) => value === mode)?.[1]}
+      >
         {categories.map((item) => (
           <button
             key={item}

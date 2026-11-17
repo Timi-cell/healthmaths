@@ -613,6 +613,7 @@ body {
   position: fixed;
   inset: 0;
   z-index: 1000;
+  pointer-events: none;
   flex-direction: column;
   align-items: center;
   justify-content: center;
@@ -734,9 +735,6 @@ button:focus-visible {
   box-shadow: 0 0 0 5px color-mix(in srgb, var(--focus) 24%, transparent);
 }
 header {
-  position: sticky;
-  top: 0;
-  z-index: 35;
   width: 100%;
   max-width: none;
   margin: 0 auto;
@@ -745,6 +743,9 @@ header {
   background: var(--bg);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
+}
+header.header-with-greeting .hero {
+  margin-top: 42px;
 }
 .top,
 .topr {
@@ -765,15 +766,13 @@ header {
   font-size: 1.15rem;
   letter-spacing: -0.02em;
 }
-.mark {
+.logo-mark {
+  display: block;
+  flex: none;
   width: 36px;
   height: 36px;
   border-radius: 12px;
-  background: linear-gradient(135deg, var(--brand), var(--action));
-  color: #fff;
-  display: grid;
-  place-items: center;
-  font-size: 1.35rem;
+  object-fit: cover;
   box-shadow: 0 8px 24px -6px rgba(13, 148, 136, 0.45);
 }
 .pill {
@@ -845,9 +844,29 @@ header {
   display: grid;
   place-items: center;
 }
+.profile-anchor.has-greeting::before,
+.profile-anchor.has-greeting::after {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  width: 2px;
+  height: 18px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--action) 78%, var(--brand));
+  content: "";
+  pointer-events: none;
+  transform-origin: bottom center;
+}
+.profile-anchor.has-greeting::before {
+  transform: rotate(24deg);
+}
+.profile-anchor.has-greeting::after {
+  transform: rotate(-24deg);
+}
 .profile-greeting {
   position: absolute;
-  top: calc(100% + 9px);
+  top: calc(100% + 18px);
+  bottom: auto;
   right: -8px;
   z-index: 36;
   max-width: min(230px, 62vw);
@@ -869,15 +888,12 @@ header {
 }
 .profile-greeting::before {
   position: absolute;
-  top: -5px;
-  right: 17px;
-  width: 9px;
-  height: 9px;
-  border-top: 1px solid color-mix(in srgb, var(--action) 28%, var(--line));
-  border-left: 1px solid color-mix(in srgb, var(--action) 28%, var(--line));
-  background: var(--glass2);
+  top: 100%;
+  right: 28px;
+  width: 1px;
+  height: 10px;
+  background: color-mix(in srgb, var(--action) 48%, var(--line));
   content: "";
-  transform: rotate(45deg);
 }
 @keyframes profile-greeting-dangle {
   0%,
@@ -1820,26 +1836,23 @@ footer a {
 :root.theme-transitioning,
 :root.theme-transitioning * {
   transition:
-    background 0.3s ease-in-out,
-    color 0.3s ease-in-out,
-    border-color 0.3s ease-in-out,
-    box-shadow 0.3s ease-in-out,
-    fill 0.3s ease-in-out,
-    stroke 0.3s ease-in-out;
+    background-color 260ms ease-in-out,
+    color 260ms ease-in-out,
+    border-color 260ms ease-in-out,
+    fill 260ms ease-in-out,
+    stroke 260ms ease-in-out;
 }
 @supports (view-transition-name: root) {
   ::view-transition-old(root) {
     animation: none;
   }
   ::view-transition-new(root) {
-    animation: theme-curtain 300ms ease-in-out both;
+    animation: theme-fade 260ms ease-in-out both;
   }
-  @keyframes theme-curtain {
-    from {
-      clip-path: circle(0 at 50% 50%);
-    }
+  @keyframes theme-fade {
+    from { opacity: 0; }
     to {
-      clip-path: circle(150vmax at 50% 50%);
+      opacity: 1;
     }
   }
 }
@@ -1963,6 +1976,16 @@ dialog::backdrop {
   from {
     opacity: 0;
     transform: translateY(28px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes category-grid-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
   }
   to {
     opacity: 1;
@@ -2102,7 +2125,9 @@ dialog .actions {
   padding: 0 24px;
 }
 .bar {
-  position: relative;
+  position: sticky;
+  top: 0;
+  z-index: 35;
   padding: 16px 0 20px;
   /* border-bottom: 1px solid var(--line); */
   background: color-mix(in srgb, var(--bg) 84%, transparent);
@@ -2190,6 +2215,7 @@ dialog.sheet {
   grid-template-columns: 1fr 1fr;
   gap: 10px;
   margin-top: 14px;
+  animation: category-grid-arrive 160ms ease both;
 }
 .category-modes {
   display: grid;
@@ -2211,7 +2237,9 @@ dialog.sheet {
   font-size: 0.83rem;
   font-weight: 700;
   cursor: pointer;
-  transition: none;
+  transition:
+    background-color 140ms ease,
+    color 140ms ease;
 }
 .category-modes .category-mode[aria-selected="true"] {
   background: var(--accent);
@@ -2417,6 +2445,9 @@ dialog.sheet {
   header {
     padding-top: 14px;
   }
+  header.header-with-greeting .hero {
+    margin-top: 46px;
+  }
   .hero {
     padding: 8px 0 0;
   }
@@ -2430,6 +2461,9 @@ dialog.sheet {
   .category-toolbar {
     gap: 8px;
     padding-top: 8px;
+  }
+  .category-toolbar-hidden {
+    display: none;
   }
   .category-toolbar .category-mode {
     min-height: 54px;
@@ -2668,6 +2702,8 @@ dialog.sheet {
   .delete-dialog[open],
   .privacy-dialog[open],
   .sheet[open],
+  .sgrid,
+  .category-modes .category-mode,
   dialog::backdrop,
   .nav-icon-animated {
     animation: none;
